@@ -216,9 +216,8 @@
     <!-- 計算の設定（EARN VIEWER）：①購入金額 ②TEEP。どちらもこの端末の中だけに保存する -->
     <div class="card">
       <h2>計算の設定</h2>
-      <p class="muted">入れた値はこの端末だけに保存します（機種を変えたときは入れ直してください）。</p>
-      <label class="field">購入金額の合計<span class="input-unit"><input id="costInput" type="number" inputmode="numeric" min="0" step="any" placeholder="未入力">円</span></label>
-      <p class="muted">総枚数（ウォレット残高＋預入＋報酬）を手に入れるのに払った金額の合計です。ホームの含み損益の計算に使います。</p>
+      <label class="field">購入枚数<span class="input-unit"><input id="qtyInput" type="number" inputmode="decimal" min="0" step="any" placeholder="未入力">枚</span></label>
+      <label class="field">購入金額<span class="input-unit"><input id="costInput" type="number" inputmode="numeric" min="0" step="any" placeholder="未入力">円</span></label>
       <label class="check teep-check"><input id="teepOn" type="checkbox"> TEEP資格</label>
       <div id="teepBox" hidden>
         <label class="field">TEEP<select id="teepSel"></select></label>

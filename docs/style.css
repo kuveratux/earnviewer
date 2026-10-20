@@ -476,3 +476,5 @@ h2.sec-help { display: flex; align-items: center; gap: 8px; }
 .teep-check { margin-top: 14px; font-weight: 600; }
 .recv-more { margin-top: 10px; }
 .onb-h { font-size: 14px; margin: 14px 0 6px; }
+/* 資産額の内訳と購入情報（2つの折りたたみを縦に並べる） */
+.fold-group > .fold + .fold { margin-top: 8px; }

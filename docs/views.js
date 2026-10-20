@@ -236,10 +236,12 @@ const signedYen = (v) => (showYen ? (v >= 0 ? '+' : '−') + Math.round(Math.abs
 const signedPct = (v) => (showYen ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%' : HIDDEN + '%'); // 金額を隠すときは％も隠す
 
 // ---- 計算の設定（EARN VIEWER。設定タブ。この端末の中だけに保存）
-// 購入金額：総枚数（ウォレット残高＋預入＋報酬）に対して払った金額の合計（円）。含み損益に使う
+// 購入枚数・購入金額：買った枚数と、その枚数に払った金額の合計（円）。購入分の平均単価＝購入金額÷購入枚数、総枚数の平均単価＝購入金額÷総枚数
+//   含み損益＝資産額（総枚数×価格）−購入金額
 // TEEP：「TEEP資格」にチェックを入れ、データの TEEP の倍率表（data.teep：[{ name, rate }]、全員共通）から名前を選ぶ
 //   選んだ TEEP の倍率を、新EARN Tier の年利に掛ける（旧EARN Tier の期間には掛けない）。チェックなし・未選択・表にない名前は 100%
 let costYen = 0;    // 0＝未入力
+let buyQty = 0;     // 購入枚数。0＝未入力
 let teepOn = false; // TEEP資格
 let teepName = '';  // 選んだ TEEP の名前
 const teepList = () => (data && Array.isArray(data.teep) ? data.teep : []);
@@ -285,7 +287,7 @@ function renderAsset(who, s, all = who) {
     $('heroLabel').textContent = APP.id === 'manager' ? '資産額（' + labelOf_(who[0]) + '）' : '資産額';
     $('heroValue').textContent = price ? yen(c.coins * price) : '—';
     if (price && !(c.cost > 0)) {
-      // 購入金額が未入力：設定タブの「購入金額の合計」へ移るリンク
+      // 購入金額が未入力：設定タブの「購入金額」へ移るリンク
       $('heroSub').replaceChildren('購入金額が未入力です（', el('button', { type: 'button', class: 'link-btn', onclick: goCostInput }, '設定で入れる'), '）');
     } else {
       $('heroSub').textContent = !price ? '現在価格が未設定のため、資産額は表示できません' : '含み損益 ' + gain(c, price);
@@ -303,7 +305,12 @@ function renderAsset(who, s, all = who) {
       ['ウォレット残高', hid(fmtInt(wallet)) + ' ' + sym],
       ['預入枚数', hid(fmtInt(w.share)) + ' ' + sym],
       ['報酬枚数', hid(fmtInt(w.share * s.factor)) + ' ' + sym],
+    ];
+    // 購入情報（内訳とは別のまとまり。設定の「計算の設定」で入れた購入枚数・購入金額から）
+    const buys = [
+      ['購入枚数', buyQty > 0 ? hid(fmtInt(buyQty)) + ' ' + sym : '未入力'],
       ['購入金額', c.cost > 0 ? yen(c.cost) : '未入力'],
+      ['購入分の平均単価', buyQty > 0 && c.cost > 0 ? yenUnit(c.cost / buyQty) : na],
       ['総枚数の平均単価', c.coins > 0 && c.cost > 0 ? yenUnit(c.cost / c.coins) : na],
     ];
     // 見出し：Manager は対象の名前と資産額、Agent は「内訳」だけ（一番上の資産額と同じなので）
@@ -313,7 +320,13 @@ function renderAsset(who, s, all = who) {
       el('div', { class: 'fold-body' }, el('div', { class: 'kv kv-plain' }, ...kvRows(rows))));
     d.open = !closedFolds.has(w.id);
     d.addEventListener('toggle', () => { if (d.open) closedFolds.delete(w.id); else closedFolds.add(w.id); });
-    return d;
+    const bk = 'buy-' + w.id;
+    const b = el('details', { class: 'fold' },
+      el('summary', {}, el('span', {}, '購入情報')),
+      el('div', { class: 'fold-body' }, el('div', { class: 'kv kv-plain' }, ...kvRows(buys))));
+    b.open = !closedFolds.has(bk);
+    b.addEventListener('toggle', () => { if (b.open) closedFolds.delete(bk); else closedFolds.add(bk); });
+    return el('div', { class: 'fold-group' }, d, b);
   }));
 
   // シミュレーション：縦に 資産額・含み損益・報酬、横に 現在価格・試算価格
@@ -378,7 +391,7 @@ $('trialInput').addEventListener('change', async () => {
 });
 document.querySelectorAll('#periodSeg button').forEach((b) => b.addEventListener('click', () => { assetPeriod = b.dataset.period; refreshAll(); }));
 if ($('simSel')) $('simSel').addEventListener('change', () => { simWho = $('simSel').value; refreshAll(); });
-// 設定タブを開いて「購入金額の合計」の入力欄へ移る
+// 設定タブを開いて「購入金額」の入力欄へ移る
 function goCostInput() {
   document.querySelector('[data-tab=settings]').click();
   window.scrollTo(0, 0);
@@ -386,6 +399,7 @@ function goCostInput() {
   setTimeout(() => { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus(); }, 50);
 }
 function renderCalcSettings() {
+  if (document.activeElement !== $('qtyInput')) $('qtyInput').value = buyQty || '';
   if (document.activeElement !== $('costInput')) $('costInput').value = costYen || '';
   // TEEP：チェックを入れたときだけリストを出す。リストは名前だけ（倍率は出さない）
   const list = teepList();
@@ -413,6 +427,14 @@ $('teepSel').addEventListener('change', async () => {
   await putSetting('teepName', teepName);
   refreshAll();
 });
+$('qtyInput').addEventListener('change', async () => {
+  const raw = $('qtyInput').value.trim();
+  const v = Number(raw);
+  if (raw && !(Number.isFinite(v) && v >= 0)) { alert('購入枚数は 0 以上の数で入れてください。'); $('qtyInput').value = buyQty || ''; return; }
+  buyQty = raw ? v : 0;
+  await putSetting('purchaseQty', buyQty);
+  refreshAll();
+});
 $('costInput').addEventListener('change', async () => {
   const raw = $('costInput').value.trim();
   const v = Number(raw);
@@ -427,6 +449,7 @@ ESV.loaders.push(async () => {
   teepName = (await getSetting('teepName')) || '';
   delSetting('multiplier').catch(() => { /* 以前の「倍率を自由に入れる欄」は使わない（TEEP の表から選ぶ） */ });
   costYen = Number(await getSetting('purchaseYen')) || 0;
+  buyQty = Number(await getSetting('purchaseQty')) || 0;
   trialPrice = Number(await getSetting('trialPrice')) || 0;
   const v = await getSetting('showYen');
   showYen = v !== false;
