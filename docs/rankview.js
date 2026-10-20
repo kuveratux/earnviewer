@@ -129,8 +129,9 @@ function renderRankingTab(targets) {
   const shown = list.slice(0, rankShown);
   $('rankList').replaceChildren(...shown.map((r) => {
     const sub = rankListKind === 'holders'
-      ? (r.split ? 'ウォレット ' + fmtInt(r.wallet) + '・預入 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward) : 'ウォレット ' + fmtInt(r.wallet) + (r.principal > 0 ? '・預入 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward) : '')) + '（' + r.share.toFixed(2) + '%）'
-      : (r.rankName ? r.rankName + ' ' + pct(r.rate) : 'ランク外') + '・' + '元本 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward);
+      // 行の内訳は英字（Wallet・Deposit・Reward。2026-10 ユーザー指示。ほかの画面は日本語のまま）
+      ? (r.split ? 'Wallet ' + fmtInt(r.wallet) + '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward) : 'Wallet ' + fmtInt(r.wallet) + (r.principal > 0 ? '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward) : '')) + '（' + r.share.toFixed(2) + '%）'
+      : (r.rankName ? r.rankName + ' ' + pct(r.rate) : 'ランク外') + '・' + 'Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward);
     const mine = r.split ? r.split.id : merged && r.address === selfAddr ? 'total' : ''; // 自分の行（枠全体を強調・ジャンプ先）
     return el('li', { class: 'rank-row' + (mine ? ' self' : ''), ...(mine ? { 'data-split': mine } : {}) },
       el('div', { class: 'rank-line' },
