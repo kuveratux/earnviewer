@@ -129,7 +129,7 @@ function renderRankingTab(targets) {
   const shown = list.slice(0, rankShown);
   $('rankList').replaceChildren(...shown.map((r) => {
     const sub = rankListKind === 'holders'
-      ? (r.split ? '手元 ' + fmtInt(r.wallet) + '・預入 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward) : '手元 ' + fmtInt(r.wallet) + (r.principal > 0 ? '・預入 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward) : '')) + '（' + r.share.toFixed(2) + '%）'
+      ? (r.split ? 'ウォレット ' + fmtInt(r.wallet) + '・預入 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward) : 'ウォレット ' + fmtInt(r.wallet) + (r.principal > 0 ? '・預入 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward) : '')) + '（' + r.share.toFixed(2) + '%）'
       : (r.rankName ? r.rankName + ' ' + pct(r.rate) : 'ランク外') + '・' + '元本 ' + fmtInt(r.principal) + '・報酬 ' + fmtInt(r.reward);
     const mine = r.split ? r.split.id : merged && r.address === selfAddr ? 'total' : ''; // 自分の行（枠全体を強調・ジャンプ先）
     return el('li', { class: 'rank-row' + (mine ? ' self' : ''), ...(mine ? { 'data-split': mine } : {}) },

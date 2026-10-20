@@ -202,6 +202,11 @@
         <button id="forgetPassBtn" hidden>保存した合言葉を削除</button>
       </div>
     </div>
+    <div class="card">
+      <h2>ランキングでの表示名</h2>
+      <p class="muted">ランキングタブの一覧で、あなたの行に表示する名前です（この端末だけに保存）。空欄なら「自分」と表示します。</p>
+      <label class="field">表示名<input id="rankSelfName" maxlength="30" autocomplete="off" placeholder="自分"></label>
+    </div>
     <!-- 計算の設定（EARN VIEWER）：新EARN Tier の倍率と購入金額。どちらもこの端末の中だけに保存する -->
     <div class="card">
       <h2>計算の設定</h2>
@@ -209,17 +214,12 @@
       <label class="field">新EARN Tier の倍率（100〜200%）<span class="input-unit"><input id="multInput" type="number" inputmode="decimal" min="100" max="200" step="any" placeholder="100">%</span></label>
       <p class="muted">新EARN Tier の年利に掛けます（例：年利 3% で 150% なら 4.5%）。旧EARN Tier の期間には掛けません。空欄なら 100% で計算します。</p>
       <label class="field">購入金額の合計<span class="input-unit"><input id="costInput" type="number" inputmode="numeric" min="0" step="any" placeholder="未入力">円</span></label>
-      <p class="muted">総枚数（手元＋預入＋報酬）を手に入れるのに払った金額の合計です。ホームの含み損益の計算に使います。</p>
+      <p class="muted">総枚数（ウォレット残高＋預入＋報酬）を手に入れるのに払った金額の合計です。ホームの含み損益の計算に使います。</p>
     </div>
     <div class="card">
       <h2>アドレス一覧</h2>
       <p class="muted">取引に出てきたアドレスの一覧です。名前を付けると、取引一覧の相手先にも表示されます（この端末だけに保存）。</p>
       <div class="row"><button id="openBookBtn" class="primary">アドレス一覧を開く</button></div>
-    </div>
-    <div class="card">
-      <h2>ランキングでの表示名</h2>
-      <p class="muted">ランキングタブの一覧で、あなたの行に表示する名前です（この端末だけに保存）。空欄なら「自分」と表示します。</p>
-      <label class="field">表示名<input id="rankSelfName" maxlength="30" autocomplete="off" placeholder="自分"></label>
     </div>
     <div class="card">
       <h2>このアプリについて</h2>

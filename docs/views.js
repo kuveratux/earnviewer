@@ -137,7 +137,7 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
   $('rewardCards').replaceChildren(...(rewardList.length ? [] : [el('div', { class: 'card' }, el('p', { class: 'muted' }, '表示する対象がありません。「設定」の「保有枚数の表示」で選んでください。'))]), ...rewardList.map((w, wi) => {
     const reward = w.share * s.factor;
     const rows = [
-      ['手元（ウォレット残高）', hid(fmtInt(wallet)) + ' ' + sym],
+      ['ウォレット残高', hid(fmtInt(wallet)) + ' ' + sym],
       ['預入枚数', hid(fmtInt(w.share)) + ' ' + sym + (showYen && showTotal && w.share !== s.total ? '（' + pct(w.share / s.total) + '）' : '')],
       // 報酬枚数：1行目に枚数、2行目に1日あたり
       ['報酬枚数', el('span', {}, hid(fmtInt(reward)) + ' ' + sym, el('br'), el('span', { class: 'per-day' }, hid(fmtDec2(w.share * s.rateNow / 365)) + ' ' + sym + '/日'))],
@@ -243,7 +243,7 @@ const signedPct = (v) => (showYen ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).t
 
 // ---- 計算の設定（EARN VIEWER。設定タブ。この端末の中だけに保存）
 // 倍率：新EARN Tier の年利に掛ける（100〜200%。空欄・範囲外は 100%）。旧EARN Tier の期間には掛けない
-// 購入金額：総枚数（手元＋預入＋報酬）に対して払った金額の合計（円）。含み損益に使う
+// 購入金額：総枚数（ウォレット残高＋預入＋報酬）に対して払った金額の合計（円）。含み損益に使う
 let multPct = 0;  // 0＝未入力
 let costYen = 0;  // 0＝未入力
 const multOf = () => (multPct >= 100 && multPct <= 200 ? multPct : 100) / 100;
@@ -253,7 +253,7 @@ function rewardRanks() {
   const m = multOf();
   return { old: ranks.old, new: { ...ranks.new, ranks: ranks.new.ranks.map((r) => ({ ...r, rate: r.rate * m })) } };
 }
-// 手元（ウォレット残高）：取得のときに balanceOf で読んだ値
+// ウォレット残高：取得のときに balanceOf で読んだ値
 const walletOf = () => Number(data && data.wallet && data.wallet.amount) || 0;
 
 let simWho = '';
@@ -287,8 +287,12 @@ function renderAsset(who, s, all = who) {
     const c = calc(who[0]);
     $('heroLabel').textContent = APP.id === 'manager' ? '資産額（' + labelOf_(who[0]) + '）' : '資産額';
     $('heroValue').textContent = price ? yen(c.coins * price) : '—';
-    $('heroSub').textContent = !price ? '現在価格が未設定のため、資産額は表示できません'
-      : c.cost > 0 ? '含み損益 ' + gain(c, price) : '購入金額が未入力です（「設定」の「計算の設定」で入れられます）';
+    if (price && !(c.cost > 0)) {
+      // 購入金額が未入力：設定タブの「購入金額の合計」へ移るリンク
+      $('heroSub').replaceChildren('購入金額が未入力です（', el('button', { type: 'button', class: 'link-btn', onclick: goCostInput }, '設定で入れる'), '）');
+    } else {
+      $('heroSub').textContent = !price ? '現在価格が未設定のため、資産額は表示できません' : '含み損益 ' + gain(c, price);
+    }
   }
   // 現在価格：資産額の根拠として、すぐ下に小さく（取得エクセルで入れた値なので、データの作成日を「時点」として添える）
   const asOf = new Date(data.generatedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' });
@@ -298,8 +302,8 @@ function renderAsset(who, s, all = who) {
   $('assetList').replaceChildren(...who.map((w) => {
     const c = calc(w);
     const rows = [
-      ['総枚数（手元＋預入＋報酬）', hid(fmtInt(c.coins)) + ' ' + sym],
-      ['手元（ウォレット残高）', hid(fmtInt(wallet)) + ' ' + sym],
+      ['総枚数（ウォレット残高＋預入＋報酬）', hid(fmtInt(c.coins)) + ' ' + sym],
+      ['ウォレット残高', hid(fmtInt(wallet)) + ' ' + sym],
       ['預入枚数', hid(fmtInt(w.share)) + ' ' + sym],
       ['報酬枚数', hid(fmtInt(w.share * s.factor)) + ' ' + sym],
       ['購入金額', c.cost > 0 ? yen(c.cost) : '未入力'],
@@ -377,6 +381,13 @@ $('trialInput').addEventListener('change', async () => {
 });
 document.querySelectorAll('#periodSeg button').forEach((b) => b.addEventListener('click', () => { assetPeriod = b.dataset.period; refreshAll(); }));
 if ($('simSel')) $('simSel').addEventListener('change', () => { simWho = $('simSel').value; refreshAll(); });
+// 設定タブを開いて「購入金額の合計」の入力欄へ移る
+function goCostInput() {
+  document.querySelector('[data-tab=settings]').click();
+  window.scrollTo(0, 0);
+  const inp = $('costInput');
+  setTimeout(() => { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus(); }, 50);
+}
 function renderCalcSettings() {
   if (document.activeElement !== $('multInput')) $('multInput').value = multPct || '';
   if (document.activeElement !== $('costInput')) $('costInput').value = costYen || '';
@@ -496,7 +507,7 @@ function helpItems(kind) {
     ['現在価格', '取得エクセルの設定シートで決めた1枚あたりの価格です。データに入っていないときは、現在価格の列が「—」になります。'],
     ['試算価格', '価格が変わったときの資産額・含み損益・報酬を見るための1枚あたりの価格（円）です。入れた値はこの端末に保存されます。', '空欄のとき：例の価格（15 円）で計算します。'],
     ['日・週・月・年', '報酬の行を、その期間あたりの目安に切り替えます。今の EARN Tier の年利で計算します（新EARN Tier は倍率を掛けた年利。月は1年の12分の1）。'],
-    ['資産額', '総枚数（手元＋預入＋報酬）に1枚あたりの価格を掛けたものです。'],
+    ['資産額', '総枚数（ウォレット残高＋預入＋報酬）に1枚あたりの価格を掛けたものです。'],
     ['含み損益', '資産額から購入金額の合計を引いたものです。購入金額は「設定」の「計算の設定」で入れます。入れていないときは「—」になります。'],
     ...(mgr ? [['対象', '合算・Manager・Agent のどれで計算するかを選びます。']] : []),
     ['目のマーク', '押すと、金額・％・枚数を「＊＊＊」で隠します。'],
@@ -508,7 +519,7 @@ function helpItems(kind) {
     ['年間希望報酬', '1年間に受け取りたい金額（円）です。入れると、必要な枚数を計算し、引き出しながら運用した場合の推移を出します。入れた値はこの端末に保存されます。', '空欄のとき：引き出さずに運用した場合の推移を出します。'],
     ['引出し（日・週・月・年）', '引き出すタイミングです。日は毎日、週は7日ごと、月は1か月ごと、年は1年ごとに、年間の枚数を回数で割って引き出します。'],
     ...(mgr ? [['対象', '合算・Manager・Agent のどれで計算するかを選びます（「保有枚数の表示」で2つ以上選んでいるときに出ます）。']] : []),
-    ['計算について', '今の EARN Tier の年利（新EARN Tier は「設定」で入れた倍率を掛けた年利）で計算した目安です。手元（ウォレット残高）は増減しないものとして足しています。引き出して枚数が減っても EARN Tier は下げずに計算します。'],
+    ['計算について', '今の EARN Tier の年利（新EARN Tier は「設定」で入れた倍率を掛けた年利）で計算した目安です。ウォレット残高は増減しないものとして足しています。引き出して枚数が減っても EARN Tier は下げずに計算します。'],
   ]];
 }
 document.addEventListener('click', (e) => {

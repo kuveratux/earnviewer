@@ -471,3 +471,5 @@ h2.sec-help { display: flex; align-items: center; gap: 8px; }
 .inv-dlg { max-height: 90vh; overflow-y: auto; }
 .forgot { margin-top: 12px; }
 .inv-pending { font-size: 12px; color: var(--note-text, #f3d68f); }
+/* 文中のリンクのようなボタン（ホームの「設定で入れる」など） */
+.link-btn { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: #9cc1ff; text-decoration: underline; cursor: pointer; box-shadow: none; }
