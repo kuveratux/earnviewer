@@ -137,8 +137,8 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
       // 報酬枚数：1行目に枚数、2行目に1日あたり
       ['報酬枚数', el('span', {}, hid(fmtInt(reward)) + ' ' + sym, el('br'), el('span', { class: 'per-day' }, hid(fmtDec2(w.share * s.rateNow / 365)) + ' ' + sym + '/日'))],
       ['預入日時', fmtDate(split.t)],
-      // 預入ランク：今のランクと年利（新EARN Tier の期間は、預入枚数のランクの年利 × TEEP の倍率で出した結果）。旧・新の日数の内訳は出さない（2026-10 ユーザー指示）
-      ['預入ランク', rankText(s.rankNow, s.rateNow)],
+      // EARN Tier：今のランクと年利（新EARN Tier の期間は、預入枚数のランクの年利 × TEEP の倍率で出した結果）。旧・新の日数の内訳は出さない（2026-10 ユーザー指示）
+      ['EARN Tier', rankText(s.rankNow, s.rateNow)],
       ['預入期間', s.days + ' 日'],
     ];
     const key = 'reward-' + w.id;
