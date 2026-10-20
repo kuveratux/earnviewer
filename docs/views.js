@@ -145,7 +145,7 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
       ['経過日数', s.days + ' 日'],
       ['　旧EARN Tier（〜' + oldLast + '）', rankText(s.rankOld, s.rateOld) + '（' + s.oldDays + ' 日）'],
       ['　新EARN Tier（' + newFirst + '〜）', rankText(s.rankNew, s.rateNew) + '（' + s.newDays + ' 日）'],
-      ['　新EARN Tier の倍率', multText()],
+      ['　TEEP', multText()],
     ];
     const key = 'reward-' + w.id;
     const d = el('details', { class: 'fold' },
@@ -242,13 +242,17 @@ const signedYen = (v) => (showYen ? (v >= 0 ? '+' : '−') + Math.round(Math.abs
 const signedPct = (v) => (showYen ? (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(1) + '%' : HIDDEN + '%'); // 金額を隠すときは％も隠す
 
 // ---- 計算の設定（EARN VIEWER。設定タブ。この端末の中だけに保存）
-// 倍率：新EARN Tier の年利に掛ける（100〜200%。空欄・範囲外は 100%）。旧EARN Tier の期間には掛けない
 // 購入金額：総枚数（ウォレット残高＋預入＋報酬）に対して払った金額の合計（円）。含み損益に使う
-let multPct = 0;  // 0＝未入力
-let costYen = 0;  // 0＝未入力
-const multOf = () => (multPct >= 100 && multPct <= 200 ? multPct : 100) / 100;
-const multText = () => (multPct >= 100 && multPct <= 200 ? multPct + '%' : '未設定（100%）');
-// 報酬の計算に使うランク表：新ランク表の年利に倍率を掛けたもの（表そのものは全員共通の APY）
+// TEEP：「TEEP資格」にチェックを入れ、データの TEEP の倍率表（data.teep：[{ name, rate }]、全員共通）から名前を選ぶ
+//   選んだ TEEP の倍率を、新EARN Tier の年利に掛ける（旧EARN Tier の期間には掛けない）。チェックなし・未選択・表にない名前は 100%
+let costYen = 0;    // 0＝未入力
+let teepOn = false; // TEEP資格
+let teepName = '';  // 選んだ TEEP の名前
+const teepList = () => (data && Array.isArray(data.teep) ? data.teep : []);
+const teepPick = () => (teepOn ? teepList().find((t) => t.name === teepName) || null : null);
+const multOf = () => { const t = teepPick(); return t ? Number(t.rate) : 1; };
+const multText = () => { const t = teepPick(); return t ? t.name : teepOn ? '未選択（100%）' : 'なし（100%）'; };
+// 報酬の計算に使うランク表：新ランク表の年利に TEEP の倍率を掛けたもの（表そのものは全員共通の APY）
 function rewardRanks() {
   const m = multOf();
   return { old: ranks.old, new: { ...ranks.new, ranks: ranks.new.ranks.map((r) => ({ ...r, rate: r.rate * m })) } };
@@ -389,15 +393,31 @@ function goCostInput() {
   setTimeout(() => { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus(); }, 50);
 }
 function renderCalcSettings() {
-  if (document.activeElement !== $('multInput')) $('multInput').value = multPct || '';
   if (document.activeElement !== $('costInput')) $('costInput').value = costYen || '';
+  // TEEP：チェックを入れたときだけリストを出す。リストは名前だけ（倍率は出さない）
+  const list = teepList();
+  $('teepOn').checked = teepOn;
+  $('teepOn').disabled = !list.length && !teepOn;
+  $('teepBox').hidden = !teepOn;
+  const names = list.map((t) => t.name).join('|');
+  if ($('teepSel').dataset.names !== names) {
+    $('teepSel').replaceChildren(el('option', { value: '' }, '選んでください'), ...list.map((t) => el('option', { value: t.name }, t.name)));
+    $('teepSel').dataset.names = names;
+  }
+  $('teepSel').value = list.some((t) => t.name === teepName) ? teepName : '';
+  $('teepNote').textContent = !list.length ? 'データに TEEP の表が入っていません（データが新しくなると選べるようになります）。'
+    : teepOn && !teepPick() ? (teepName ? '選んでいた「' + teepName + '」が表にありません。選び直してください（今は 100% で計算しています）。' : 'TEEP を選んでください（選ぶまでは 100% で計算します）。')
+    : '';
+  $('teepNote').hidden = !$('teepNote').textContent;
 }
-$('multInput').addEventListener('change', async () => {
-  const raw = $('multInput').value.trim();
-  const v = Number(raw);
-  if (raw && !(Number.isFinite(v) && v >= 100 && v <= 200)) { alert('倍率は 100 から 200 の範囲で入れてください（空欄なら 100% で計算します）。'); $('multInput').value = multPct || ''; return; }
-  multPct = raw ? v : 0;
-  await putSetting('multiplier', multPct);
+$('teepOn').addEventListener('change', async () => {
+  teepOn = $('teepOn').checked;
+  await putSetting('teepOn', teepOn);
+  refreshAll();
+});
+$('teepSel').addEventListener('change', async () => {
+  teepName = $('teepSel').value;
+  await putSetting('teepName', teepName);
   refreshAll();
 });
 $('costInput').addEventListener('change', async () => {
@@ -410,7 +430,9 @@ $('costInput').addEventListener('change', async () => {
 });
 ESV.renderers.push(renderCalcSettings);
 ESV.loaders.push(async () => {
-  multPct = Number(await getSetting('multiplier')) || 0;
+  teepOn = (await getSetting('teepOn')) === true;
+  teepName = (await getSetting('teepName')) || '';
+  delSetting('multiplier').catch(() => { /* 以前の「倍率を自由に入れる欄」は使わない（TEEP の表から選ぶ） */ });
   costYen = Number(await getSetting('purchaseYen')) || 0;
   trialPrice = Number(await getSetting('trialPrice')) || 0;
   const v = await getSetting('showYen');
@@ -506,7 +528,7 @@ function helpItems(kind) {
   if (kind === 'asset') return ['資産シミュレーション', [
     ['現在価格', '取得エクセルの設定シートで決めた1枚あたりの価格です。データに入っていないときは、現在価格の列が「—」になります。'],
     ['試算価格', '価格が変わったときの資産額・含み損益・報酬を見るための1枚あたりの価格（円）です。入れた値はこの端末に保存されます。', '空欄のとき：例の価格（15 円）で計算します。'],
-    ['日・週・月・年', '報酬の行を、その期間あたりの目安に切り替えます。今の EARN Tier の年利で計算します（新EARN Tier は倍率を掛けた年利。月は1年の12分の1）。'],
+    ['日・週・月・年', '報酬の行を、その期間あたりの目安に切り替えます。今の EARN Tier の年利で計算します（新EARN Tier は TEEP の倍率を掛けた年利。月は1年の12分の1）。'],
     ['資産額', '総枚数（ウォレット残高＋預入＋報酬）に1枚あたりの価格を掛けたものです。'],
     ['含み損益', '資産額から購入金額の合計を引いたものです。購入金額は「設定」の「計算の設定」で入れます。入れていないときは「—」になります。'],
     ...(mgr ? [['対象', '合算・Manager・Agent のどれで計算するかを選びます。']] : []),
@@ -519,7 +541,7 @@ function helpItems(kind) {
     ['年間希望報酬', '1年間に受け取りたい金額（円）です。入れると、必要な枚数を計算し、引き出しながら運用した場合の推移を出します。入れた値はこの端末に保存されます。', '空欄のとき：引き出さずに運用した場合の推移を出します。'],
     ['引出し（日・週・月・年）', '引き出すタイミングです。日は毎日、週は7日ごと、月は1か月ごと、年は1年ごとに、年間の枚数を回数で割って引き出します。'],
     ...(mgr ? [['対象', '合算・Manager・Agent のどれで計算するかを選びます（「保有枚数の表示」で2つ以上選んでいるときに出ます）。']] : []),
-    ['計算について', '今の EARN Tier の年利（新EARN Tier は「設定」で入れた倍率を掛けた年利）で計算した目安です。ウォレット残高は増減しないものとして足しています。引き出して枚数が減っても EARN Tier は下げずに計算します。'],
+    ['計算について', '今の EARN Tier の年利（新EARN Tier は「設定」で選んだ TEEP の倍率を掛けた年利）で計算した目安です。ウォレット残高は増減しないものとして足しています。引き出して枚数が減っても EARN Tier は下げずに計算します。'],
   ]];
 }
 document.addEventListener('click', (e) => {

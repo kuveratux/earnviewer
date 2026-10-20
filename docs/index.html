@@ -38,7 +38,7 @@
   <section id="tab-ranking" class="tab" hidden>
     <div class="card whenEmpty" hidden>
       <h2>データがありません</h2>
-      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <p class="muted">招待リンクを開くか、「設定」タブの「インポートデータ」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
       <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
     </div>
     <div class="whenData" hidden>
@@ -66,7 +66,7 @@
   <section id="tab-tx" class="tab" hidden>
     <div class="card whenEmpty" hidden>
       <h2>データがありません</h2>
-      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <p class="muted">招待リンクを開くか、「設定」タブの「インポートデータ」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
       <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
     </div>
     <div class="whenData" hidden>
@@ -107,7 +107,7 @@
   <section id="tab-reward" class="tab" hidden>
     <div class="card whenEmpty" hidden>
       <h2>データがありません</h2>
-      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <p class="muted">招待リンクを開くか、「設定」タブの「インポートデータ」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
       <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
     </div>
     <div class="whenData" hidden>
@@ -152,7 +152,7 @@
   <section id="tab-asset" class="tab">
     <div class="card whenEmpty" hidden>
       <h2>データがありません</h2>
-      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <p class="muted">招待リンクを開くか、「設定」タブの「インポートデータ」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
       <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
     </div>
     <div class="whenData" hidden>
@@ -189,9 +189,9 @@
 
   <!-- 設定 -->
   <section id="tab-settings" class="tab" hidden>
-    <!-- データの受け取り（2026-10）：招待リンク・招待コードで覚えたファイルを、ログインなしで自動で受け取る -->
+    <!-- インポートデータ（2026-10）：招待リンク・招待コードで覚えたファイルを、ログインなしで自動で受け取る -->
     <div class="card">
-      <h2>データの受け取り</h2>
+      <h2>インポートデータ</h2>
       <div id="recvInfo" class="kv kv-plain recv-info"></div>
       <div class="row">
         <button id="recvCheckBtn" class="primary">今すぐ確認</button>
@@ -207,14 +207,18 @@
       <p class="muted">ランキングタブの一覧で、あなたの行に表示する名前です（この端末だけに保存）。空欄なら「自分」と表示します。</p>
       <label class="field">表示名<input id="rankSelfName" maxlength="30" autocomplete="off" placeholder="自分"></label>
     </div>
-    <!-- 計算の設定（EARN VIEWER）：新EARN Tier の倍率と購入金額。どちらもこの端末の中だけに保存する -->
+    <!-- 計算の設定（EARN VIEWER）：①購入金額 ②TEEP。どちらもこの端末の中だけに保存する -->
     <div class="card">
       <h2>計算の設定</h2>
       <p class="muted">入れた値はこの端末だけに保存します（機種を変えたときは入れ直してください）。</p>
-      <label class="field">新EARN Tier の倍率（100〜200%）<span class="input-unit"><input id="multInput" type="number" inputmode="decimal" min="100" max="200" step="any" placeholder="100">%</span></label>
-      <p class="muted">新EARN Tier の年利に掛けます（例：年利 3% で 150% なら 4.5%）。旧EARN Tier の期間には掛けません。空欄なら 100% で計算します。</p>
       <label class="field">購入金額の合計<span class="input-unit"><input id="costInput" type="number" inputmode="numeric" min="0" step="any" placeholder="未入力">円</span></label>
       <p class="muted">総枚数（ウォレット残高＋預入＋報酬）を手に入れるのに払った金額の合計です。ホームの含み損益の計算に使います。</p>
+      <label class="check teep-check"><input id="teepOn" type="checkbox"> TEEP資格</label>
+      <div id="teepBox" hidden>
+        <label class="field">TEEP<select id="teepSel"></select></label>
+      </div>
+      <p id="teepNote" class="note" hidden></p>
+      <p class="muted">TEEP資格があるときはチェックを入れて、TEEP を選びます。新EARN Tier の年利に TEEP の倍率を掛けて計算します（旧EARN Tier の期間には掛けません）。チェックしていないときは 100% で計算します。</p>
     </div>
     <div class="card">
       <h2>アドレス一覧</h2>
@@ -294,7 +298,7 @@
   <form method="dialog">
     <h2>受け取りました</h2>
     <p>このあとは、アプリを開くたびに自動で最新のデータになります。</p>
-    <p class="muted">ホーム画面に追加して使う場合、iPhone では追加したアプリにもう一度この招待コードを入れてください（設定タブの「データの受け取り」→［招待コードを入れる］）。</p>
+    <p class="muted">ホーム画面に追加して使う場合、iPhone では追加したアプリにもう一度この招待コードを入れてください（設定タブの「インポートデータ」→［招待コードを入れる］）。</p>
     <p id="inviteDoneCode" class="mono invite-code"></p>
     <div class="row">
       <button id="inviteCopyBtn" type="button" class="primary">コードをコピー</button>

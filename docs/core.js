@@ -332,7 +332,7 @@ function slotTimes(key) {
 }
 
 async function renderDriveInfo() {
-  if (RECEIVE) { renderRecvInfo(); return; } // Agent は「データの受け取り」の欄
+  if (RECEIVE) { renderRecvInfo(); return; } // 「インポートデータ」の欄
   const ok = Drive.configured();
   document.querySelectorAll('.driveOnly').forEach((e) => { e.hidden = !ok; });
   if (!ok) return;
@@ -628,7 +628,7 @@ async function checkPublic(manual = false) {
   if (!RECEIVE || driveBusy || !Drive.configured()) return;
   const slots = await getSlots();
   const file = slots.data;
-  if (!file) { if (manual) toast('受け取り先が決まっていません。招待リンクを開くか、［招待コードを入れる］から始めてください。'); return; }
+  if (!file) { if (manual) toast('データ格納先が決まっていません。招待リンクを開くか、［招待コードを入れる］から始めてください。'); return; }
   lastPublicCheck = Date.now();
   driveBusy = true;
   let msg = null;
@@ -733,15 +733,17 @@ async function acceptInvite(id) {
   $('inviteDoneDlg').showModal();
 }
 
-// 「データの受け取り」の欄
+// 「インポートデータ」の欄（2026-10 に「データの受け取り」から改名）
 async function renderRecvInfo() {
   if (!$('recvInfo')) return;
   const slots = await getSlots();
   const f = slots.data;
+  // ファイル名は伏せる（ev_…_latest.json。番号やアドレスの一部を画面に出さない）
+  const masked = (name) => String(name || '').replace(/^ev_.+_latest\.json$/i, 'ev_…_latest.json');
   const rows = [
-    ['受け取り先', f ? '設定済み' + (f.name ? '（' + f.name + '）' : '') : '未設定（招待リンクを開くか、招待コードを入れてください）'],
-    ['最後に確かめた日時', f && f.checkedAt ? fmtShortJst(f.checkedAt) : '—'],
-    ['データの作成日時', data ? fmtShortJst(data.generatedAt) : '—'],
+    ['データ格納先', f ? '設定済み' + (f.name ? '（' + masked(f.name) + '）' : '') : '未設定（招待リンクを開くか、招待コードを入れてください）'],
+    ['データ最終確認日時', f && f.checkedAt ? fmtShortJst(f.checkedAt) : '—'],
+    ['データ作成日時', data ? fmtShortJst(data.generatedAt) : '—'],
   ];
   if (publicState === 'ng') rows.push(['状態', '受け取れませんでした（共有の設定を招待した人に確かめてもらってください）']);
   $('recvInfo').replaceChildren(...kvRows(rows));
