@@ -70,6 +70,8 @@ function tierIconUrl(key) {
     (t.n ? pos.map(([x, y, s]) => one(x, y, s)).join('') : `<path d="M24 33 L40 33" stroke="${t.c[1]}" stroke-width="3" stroke-linecap="round"/>`) + '</svg>';
   return (tierIconCache[key] = 'data:image/svg+xml;base64,' + btoa(svg));
 }
+// アイコンだけ（報酬タブの預入期間・資産シミュレーション・EARN 割合の表で使う）
+const tierIcon = (name) => el('img', { class: 'tier-icon', src: tierIconUrl(tierStyleKey(name)), alt: '', width: '16', height: '16' });
 // アイコン＋名前（利率は出さない）
 const tierBadge = (name) => el('span', { class: 'rk-tier' }, el('img', { src: tierIconUrl(tierStyleKey(name)), alt: '', width: '16', height: '16' }), name || 'ランク外');
 
@@ -318,7 +320,7 @@ function renderShare(d, kind) {
     el('tr', {}, ...head.map((h, i) => el('th', i ? { class: 'num' } : {}, h))),
     ...rowsForTable.map((r) => {
       const tr = el('tr', { class: (lit(r.key) ? '' : 'dim') + (sel === r.key ? ' on' : '') + (r.sub ? ' sub' : '') + (r.head ? ' head' : '') },
-        el('td', {}, r.key === '__used' ? el('span', { class: 'swatch', style: 'background:' + SHARE_DARKEST }) : el('span', { class: 'swatch', style: 'background:' + r.color }), r.image ? el('img', { class: 'share-img', src: r.image, alt: r.label, title: r.label }) : null, r.image ? null : r.label), // 運営は画像があれば画像だけ
+        el('td', {}, r.key === '__used' ? el('span', { class: 'swatch', style: 'background:' + SHARE_DARKEST }) : el('span', { class: 'swatch', style: 'background:' + r.color }), r.image ? el('img', { class: 'share-img', src: r.image, alt: r.label, title: r.label }) : null, kind === 'rankShare' && r.key !== '__used' ? tierIcon(r.key === d.NONE || r.key === 'レベル外' ? null : r.key) : null, r.image ? null : r.label), // 運営は画像があれば画像だけ。EARN 割合はランクのアイコンも
         el('td', { class: 'num' }, r.count.toLocaleString('ja-JP')),
         ...(kind === 'fishShare' ? [el('td', { class: 'num' }, fmtInt(r.value))] : []),
         el('td', { class: 'num' }, pctText(r.ratio)),

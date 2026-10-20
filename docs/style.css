@@ -484,3 +484,11 @@ h2.sec-help { display: flex; align-items: center; gap: 8px; }
 /* EARN の順位の各行：アドレスと枚数の間に EARN Tier（宝石のバッジ＋名前） */
 .rk-tier { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .rk-tier img { width: 16px; height: 16px; }
+/* EARN Tier のアイコンを文中に（預入期間・資産シミュレーション・EARN 割合の表） */
+.tier-inline { display: inline-flex; align-items: center; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.tier-icon { width: 16px; height: 16px; vertical-align: -3px; margin-right: 3px; }
+.tier-inline .tier-icon { margin-right: 0; }
+.tier-nb { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+/* 資産シミュレーション：期間のボタンは縮めない（EARN Tier の表示のほうを折り返す） */
+.sim-ctl-in .seg { flex-shrink: 0; }
+.sim-ctl-in .rate-now { min-width: 0; text-align: right; }

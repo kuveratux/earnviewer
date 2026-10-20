@@ -139,7 +139,8 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
       ['預入日時', fmtDate(split.t)],
       // 預入期間：「EARN Tier：Gold(9.75%) 30日」の形。ランクと年利は今のもの（新EARN Tier の期間は、預入枚数のランクの年利 × TEEP の倍率で出した結果）
       // 旧・新の日数の内訳は出さない（2026-10 ユーザー指示）
-      ['預入期間', 'EARN Tier：' + hid(s.rankNow ? s.rankNow.name + '(' + pct(s.rateNow) + ')' : 'ランク外(0%)') + ' ' + s.days + '日'],
+      ['預入期間', el('span', { class: 'tier-inline' }, 'EARN Tier：', el('span', { class: 'tier-nb' }, showYen ? tierIcon(s.rankNow && s.rankNow.name) : null,
+        hid(s.rankNow ? s.rankNow.name + '(' + pct(s.rateNow) + ')' : 'ランク外(0%)')), ' ' + s.days + '日')],
     ];
     const key = 'reward-' + w.id;
     const d = el('details', { class: 'fold' },
@@ -335,7 +336,8 @@ function renderAsset(who, s, all = who) {
   $('trialInput').placeholder = '例：' + String(examplePrice);
   document.querySelectorAll('#periodSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === assetPeriod)));
   $('assetPrice').textContent = '現在価格：' + (price ? yenUnit(price) : '未設定');
-  $('rateNow').textContent = 'EARN Tier：' + hid(s.rankNow ? s.rankNow.name + '（' + pct(s.rateNow) + '）' : 'ランク外（0%）');
+  $('rateNow').replaceChildren(el('span', { class: 'tier-inline' }, 'EARN Tier：', el('span', { class: 'tier-nb' }, showYen ? tierIcon(s.rankNow && s.rankNow.name) : null,
+    hid(s.rankNow ? s.rankNow.name + '（' + pct(s.rateNow) + '）' : 'ランク外（0%）')))); // 目のマークで隠すときはアイコンも出さない。アイコンと名前は改行で分けない
   if ($('simSel')) {
     // 名前が変わったときにも作り直す
     const names = all.map((w) => w.name).join('|');
