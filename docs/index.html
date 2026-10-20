@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 通信先を自分のサイトと Google ドライブ連携（ログイン・ファイル選択・取得）だけに限定する -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: https://*.googleusercontent.com https://ssl.gstatic.com https://www.gstatic.com; connect-src 'self' https://www.googleapis.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/ https://docs.google.com https://drive.google.com https://content.googleapis.com; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'">
+<!-- 送るのはサイト名（https://kuveratux.github.io/）だけ。API キーのウェブサイト制限の判定に必要 -->
+<meta name="referrer" content="strict-origin">
+<meta name="theme-color" content="#050912">
+<meta name="color-scheme" content="dark">
+<title>EARN VIEWER</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EARN VIEWER">
+<link rel="stylesheet" href="style.css">
+<script src="app-config.js"></script>
+<script src="appearance.js"></script>
+</head>
+<body>
+<!-- ヘッダ：スクロールしても上に残す -->
+<div class="topbar">
+<header class="bar">
+  <div class="title"><img class="bar-icon" src="icons/bar-icon.png" alt=""><h1>EARN VIEWER</h1></div>
+  <span id="status" class="status"></span>
+</header>
+
+</div>
+
+<div id="updateNote" class="note update" hidden>新しいバージョンがあります。<button id="reloadBtn" class="primary">更新する</button></div>
+<main>
+  <div id="dummyNote" class="note" hidden>表示しているのは動作確認用のダミーデータです。</div>
+
+  <!-- ランキング（保有者ランキング） -->
+  <section id="tab-ranking" class="tab" hidden>
+    <div class="card whenEmpty" hidden>
+      <h2>データがありません</h2>
+      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
+    </div>
+    <div class="whenData" hidden>
+      <div id="rankNote" class="note" hidden></div>
+      <div id="rankBody">
+        <div id="rankCards"></div>
+        <div id="rankSeg" class="rank-groups" role="group" aria-label="ランキングの種類">
+          <div class="rank-group">
+            <div class="rg-title">保有者</div>
+            <div class="seg"><button type="button" data-list="holders" aria-pressed="true">順位</button><button type="button" data-list="fishShare" aria-pressed="false">割合</button></div>
+          </div>
+          <div class="rank-group">
+            <div class="rg-title">EARN</div>
+            <div class="seg"><button type="button" data-list="depositors" aria-pressed="false">順位</button><button type="button" data-list="rankShare" aria-pressed="false">割合</button></div>
+          </div>
+        </div>
+        <div id="rankShareBox" class="card share-box" hidden></div>
+        <ul id="rankList" class="txlist ranklist"></ul>
+        <div class="row"><button id="rankMore" type="button" hidden>さらに表示</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 取引 -->
+  <section id="tab-tx" class="tab" hidden>
+    <div class="card whenEmpty" hidden>
+      <h2>データがありません</h2>
+      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
+    </div>
+    <div class="whenData" hidden>
+      <!-- 配布先の取引（起動時は開く） -->
+      <details class="card tx-fold" open>
+        <summary><span id="mineTitle">配布先の取引</span></summary>
+        <div class="tx-body">
+          <h2 class="sec">区分別</h2>
+          <div class="scroll"><table id="clsTable" class="grid"></table></div>
+          <h2 class="sec">取引履歴</h2>
+          <div class="filters">
+            <label>区分 <select id="clsSel"></select></label>
+            <label>向き
+              <select id="dirSel">
+                <option value="">すべて</option>
+                <option value="in">受取</option>
+                <option value="out">送付</option>
+              </select>
+            </label>
+          </div>
+          <p id="txCount" class="muted"></p>
+          <ul id="txList" class="txlist"></ul>
+        </div>
+      </details>
+      <!-- コントラクト全体の直近取引（起動時は閉じる。10 件ずつ、100 件まで） -->
+      <details class="card tx-fold">
+        <summary><span id="recentTitle">直近取引</span></summary>
+        <div class="tx-body">
+          <p id="recentNote" class="muted"></p>
+          <ul id="recentList" class="txlist"></ul>
+          <div class="recent-more"><button id="recentMore" type="button">さらに10件</button></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- 報酬 -->
+  <section id="tab-reward" class="tab" hidden>
+    <div class="card whenEmpty" hidden>
+      <h2>データがありません</h2>
+      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
+    </div>
+    <div class="whenData" hidden>
+      <div id="rewardNote" class="note" hidden></div>
+      <div id="rewardBody">
+        <div id="rewardCards"></div>
+        <h2 class="sec sec-help">運用シミュレーション<button type="button" class="help-btn" data-help="reward" aria-label="運用シミュレーションのヘルプ">?</button></h2>
+        <div class="chart-controls">
+          <div id="modeSeg" class="seg" role="group" aria-label="計算方法">
+            <button type="button" data-mode="simple" aria-pressed="true">単利</button>
+            <button type="button" data-mode="compound" aria-pressed="false">複利</button>
+          </div>
+          <div id="yearsSeg" class="seg" role="group" aria-label="期間">
+            <button type="button" data-years="1" aria-pressed="false">1年</button>
+            <button type="button" data-years="3" aria-pressed="true">3年</button>
+            <button type="button" data-years="5" aria-pressed="false">5年</button>
+            <button type="button" data-years="10" aria-pressed="false">10年</button>
+          </div>
+          <select id="whoSel" aria-label="対象" hidden></select>
+        </div>
+        <div class="wd-box">
+          <label class="trial-row">TUX価格：<input id="wdPrice" type="number" inputmode="decimal" min="0" step="any">円</label>
+          <label class="trial-row">年間希望報酬：<input id="wdYen" class="wide" type="number" inputmode="numeric" min="0" step="any" placeholder="0">円<span id="wdYenUnit" class="yen-unit"></span></label>
+          <div class="wd-freq"><span>引出し：</span>
+            <div id="wdFreqSeg" class="seg" role="group" aria-label="引出しのタイミング">
+              <button type="button" data-freq="day" aria-pressed="false">日</button>
+              <button type="button" data-freq="week" aria-pressed="false">週</button>
+              <button type="button" data-freq="month" aria-pressed="true">月</button>
+              <button type="button" data-freq="year" aria-pressed="false">年</button>
+            </div>
+          </div>
+          <p id="wdInfo" class="muted"></p>
+        </div>
+        <div id="rewardChart"></div>
+        <h2 id="rewardTableTitle" class="sec">3年後までの推移</h2>
+        <div class="scroll"><table id="rewardTable" class="grid"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 資産 -->
+  <section id="tab-asset" class="tab">
+    <div class="card whenEmpty" hidden>
+      <h2>データがありません</h2>
+      <p class="muted">招待リンクを開くか、「設定」タブの「データの受け取り」で［招待コードを入れる］を押してください（ファイルから読み込むこともできます）。</p>
+      <div class="row"><button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button><button type="button" class="openCodeBtn">招待コードを入れる</button></div>
+    </div>
+    <div class="whenData" hidden>
+      <div id="assetNote" class="note" hidden></div>
+      <div id="assetBody">
+        <div class="card asset-hero">
+          <div id="heroLabel" class="sym"></div>
+          <div class="hero-row">
+            <span id="heroValue" class="hero-val"></span>
+            <button id="eyeBtn" type="button" class="eye eye-toggle" aria-pressed="true" aria-label="金額を隠す"></button>
+          </div>
+          <div id="heroSub" class="muted"></div>
+          <div id="heroPrice" class="muted hero-price"></div>
+          <div id="assetList" class="hero-folds"></div>
+        </div>
+        <h2 class="sec sec-help">資産シミュレーション<button type="button" class="help-btn" data-help="asset" aria-label="資産シミュレーションのヘルプ">?</button></h2>
+        <div class="card">
+          <p id="assetPrice" class="muted"></p>
+          <label class="trial-row">試算価格：<input id="trialInput" type="number" inputmode="decimal" min="0" step="any">円</label>
+          <div class="chart-controls">
+            <div id="periodSeg" class="seg" role="group" aria-label="報酬の期間">
+              <button type="button" data-period="day" aria-pressed="true">日</button>
+              <button type="button" data-period="week" aria-pressed="false">週</button>
+              <button type="button" data-period="month" aria-pressed="false">月</button>
+              <button type="button" data-period="year" aria-pressed="false">年</button>
+            </div>
+            <span id="rateNow" class="rate-now"></span>
+          </div>
+          <div class="scroll"><table id="simTable" class="grid sim"></table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="tab-settings" class="tab" hidden>
+    <!-- データの受け取り（2026-10）：招待リンク・招待コードで覚えたファイルを、ログインなしで自動で受け取る -->
+    <div class="card">
+      <h2>データの受け取り</h2>
+      <div id="recvInfo" class="kv kv-plain recv-info"></div>
+      <div class="row">
+        <button id="recvCheckBtn" class="primary">今すぐ確認</button>
+        <button id="inviteCodeBtn" type="button">招待コードを入れる</button>
+      </div>
+      <div class="row">
+        <label class="button">ファイルから読み込む<input class="dataFile" type="file" accept="application/json,.json" multiple hidden></label>
+        <button id="forgetPassBtn" hidden>保存した合言葉を削除</button>
+      </div>
+    </div>
+    <!-- 計算の設定（EARN VIEWER）：新EARN Tier の倍率と購入金額。どちらもこの端末の中だけに保存する -->
+    <div class="card">
+      <h2>計算の設定</h2>
+      <p class="muted">入れた値はこの端末だけに保存します（機種を変えたときは入れ直してください）。</p>
+      <label class="field">新EARN Tier の倍率（100〜200%）<span class="input-unit"><input id="multInput" type="number" inputmode="decimal" min="100" max="200" step="any" placeholder="100">%</span></label>
+      <p class="muted">新EARN Tier の年利に掛けます（例：年利 3% で 150% なら 4.5%）。旧EARN Tier の期間には掛けません。空欄なら 100% で計算します。</p>
+      <label class="field">購入金額の合計<span class="input-unit"><input id="costInput" type="number" inputmode="numeric" min="0" step="any" placeholder="未入力">円</span></label>
+      <p class="muted">総枚数（手元＋預入＋報酬）を手に入れるのに払った金額の合計です。ホームの含み損益の計算に使います。</p>
+    </div>
+    <div class="card">
+      <h2>アドレス一覧</h2>
+      <p class="muted">取引に出てきたアドレスの一覧です。名前を付けると、取引一覧の相手先にも表示されます（この端末だけに保存）。</p>
+      <div class="row"><button id="openBookBtn" class="primary">アドレス一覧を開く</button></div>
+    </div>
+    <div class="card">
+      <h2>ランキングでの表示名</h2>
+      <p class="muted">ランキングタブの一覧で、あなたの行に表示する名前です（この端末だけに保存）。空欄なら「自分」と表示します。</p>
+      <label class="field">表示名<input id="rankSelfName" maxlength="30" autocomplete="off" placeholder="自分"></label>
+    </div>
+    <div class="card">
+      <h2>このアプリについて</h2>
+      <p>バージョン：<b id="appVersion"></b></p>
+      <div class="row"><button id="updateBtn">更新を確認</button></div>
+    </div>
+    <div class="card">
+      <h2>ホーム画面に追加</h2>
+      <button id="installBtn" class="primary" hidden>アプリとしてインストール</button>
+      <p class="muted"><b>Android（Chrome）</b>：メニュー（︙）→「ホーム画面に追加」または「アプリをインストール」</p>
+      <p class="muted"><b>iPhone（Safari）</b>：共有ボタン →「ホーム画面に追加」</p>
+    </div>
+  </section>
+  <!-- アドレス一覧（設定タブから開く） -->
+  <section id="tab-book" class="tab" hidden>
+    <div class="row"><button id="backFromBook" type="button">← 設定に戻る</button></div>
+    <h2 class="sec">アドレス一覧</h2>
+    <p class="muted">名前はこの端末の中だけに保存され、外部には送られません。取引一覧の相手先を押しても名前を付けられます。</p>
+    <p id="bookCount" class="muted"></p>
+    <ul id="bookList" class="booklist"></ul>
+    <div class="card">
+      <h2>バックアップ</h2>
+      <p class="muted">機種変更や、端末のデータが消えたときに備えて、名前をファイルに書き出しておけます。</p>
+      <div class="row">
+        <button id="bookExportBtn" class="primary">書き出し</button>
+        <label class="button">読み込み<input id="bookImportFile" type="file" accept="application/json,.json" hidden></label>
+      </div>
+    </div>
+  </section>
+</main>
+<!-- タブ：画面の一番下に固定（アイコンの下にタブ名。アイコンは仮） -->
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="asset" aria-selected="true"><svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg><span>ホーム</span></button>
+  <button role="tab" data-tab="reward" aria-selected="false"><svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v4c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 10v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"/><path d="M5 14v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"/></svg><span>報酬</span></button>
+  <button role="tab" data-tab="ranking" aria-selected="false"><svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>ランキング</span></button>
+  <button role="tab" data-tab="tx" aria-selected="false"><svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>取引履歴</span></button>
+  <button role="tab" data-tab="settings" aria-selected="false"><svg class="tab-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>設定</span></button>
+</nav>
+
+<dialog id="helpDlg" class="help-dlg">
+  <form method="dialog">
+    <div class="help-head">
+      <h2 id="helpTitle"></h2>
+      <button value="close" class="help-close" aria-label="閉じる">×</button>
+    </div>
+    <div id="helpBody" class="help-body"></div>
+  </form>
+</dialog>
+
+<!-- 招待リンクをブラウザで開いたときの案内（Android はインストールを先に、iPhone はホーム画面に追加の手順、アプリの中のブラウザは開き直し） -->
+<dialog id="onbDlg" class="onb-dlg">
+  <form method="dialog">
+    <h2 id="onbTitle"></h2>
+    <div id="onbBody" class="onb-body"></div>
+    <div id="onbBtns" class="onb-btns"></div>
+  </form>
+</dialog>
+
+<dialog id="codeDlg">
+  <form method="dialog">
+    <h2>招待コードを入れる</h2>
+    <p class="muted">招待した人から受け取った招待コード（または招待リンク）を貼り付けてください。</p>
+    <label class="field">招待コード <input id="codeInput" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+    <div class="row">
+      <button value="ok" class="primary">受け取る</button>
+      <button value="cancel" formnovalidate>やめる</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="inviteDoneDlg">
+  <form method="dialog">
+    <h2>受け取りました</h2>
+    <p>このあとは、アプリを開くたびに自動で最新のデータになります。</p>
+    <p class="muted">ホーム画面に追加して使う場合、iPhone では追加したアプリにもう一度この招待コードを入れてください（設定タブの「データの受け取り」→［招待コードを入れる］）。</p>
+    <p id="inviteDoneCode" class="mono invite-code"></p>
+    <div class="row">
+      <button id="inviteCopyBtn" type="button" class="primary">コードをコピー</button>
+      <button value="close">閉じる</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="nameDlg">
+  <form method="dialog">
+    <h2>名前を付ける</h2>
+    <p id="dlgAddr" class="mono"></p>
+    <label class="field">名前（空欄にすると削除） <input id="dlgName" autocomplete="off" maxlength="40"></label>
+    <div class="row">
+      <button value="save" class="primary">保存</button>
+      <button value="cancel" formnovalidate>やめる</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="passDlg">
+  <form method="dialog">
+    <h2>合言葉を入力</h2>
+    <p class="muted">このデータファイルは暗号化されています。合言葉は端末の外には送られません。</p>
+    <label class="field">合言葉 <input id="passInput" type="password" autocomplete="off" spellcheck="false"></label>
+    <label class="check"><input id="passSave" type="checkbox" checked> この端末に合言葉を保存する（次回から入力不要）</label>
+    <div class="row">
+      <button value="ok" class="primary">開く</button>
+      <button value="cancel" formnovalidate>やめる</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="version.js"></script>
+<script src="drive.js"></script>
+<script src="core.js"></script>
+<script src="reward.js"></script>
+<script src="deposits.js"></script>
+<script src="fish.js"></script>
+<script src="report.js"></script>
+<script src="chart.js"></script>
+<script src="views.js"></script>
+<script src="book.js"></script>
+<script src="rankview.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
