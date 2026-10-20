@@ -337,7 +337,7 @@ function renderAsset(who, s, all = who) {
   document.querySelectorAll('#periodSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.period === assetPeriod)));
   $('assetPrice').textContent = '現在価格：' + (price ? yenUnit(price) : '未設定');
   $('rateNow').replaceChildren(el('span', { class: 'tier-inline' }, 'EARN Tier：', el('span', { class: 'tier-nb' }, showYen ? tierIcon(s.rankNow && s.rankNow.name) : null,
-    hid(s.rankNow ? s.rankNow.name + '（' + pct(s.rateNow) + '）' : 'ランク外（0%）')))); // 目のマークで隠すときはアイコンも出さない。アイコンと名前は改行で分けない
+    hid(s.rankNow ? s.rankNow.name + '(' + pct(s.rateNow) + ')' : 'ランク外(0%)')))); // 目のマークで隠すときはアイコンも出さない。1行で出す（括弧は半角で短く。預入期間と同じ形）
   if ($('simSel')) {
     // 名前が変わったときにも作り直す
     const names = all.map((w) => w.name).join('|');

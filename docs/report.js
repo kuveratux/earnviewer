@@ -2,7 +2,8 @@
 
 // 4つの観点を作る（ほかのツールでも使う共通部品。ブラウザと Node の両方で使える）
 //   ① 保有者ランキング：手元＋元本＋報酬の多い順、魚分類つき（分類は報酬を入れた合計で決める）
-//   ② 預入ランキング：預けている人だけ、元本＋報酬の多い順、ランク名・年利つき
+//   ② 預入ランキング：預けている人だけ、ウォレット残高＋元本＋報酬の多い順、ランク名・年利つき
+//      （2026-10-21 に「元本＋報酬」の順から置き換え。結果の depositorsOrder で並びを見分ける）
 //   ③ ランク割合：預けている人のランク別の人数
 //   ④ 魚分類の割合：預け先の中の人を分けて、手元＋元本（報酬は入れない＝発行済みの枚数）の分類別の枚数。運営は Community
 //
@@ -15,6 +16,8 @@
 const Report = (() => {
   const Dep = typeof Deposits !== 'undefined' ? Deposits : require('./deposits.js');
   const F = typeof Fish !== 'undefined' ? Fish : require('./fish.js');
+  // ② の並び。以前の並び（元本＋報酬）で作ったランキングと前回比較しないよう、結果に入れて見分ける
+  const DEPOSITORS_ORDER = 'wallet+principal+reward';
 
   function build(src, now) {
     const dec = src.decimals;
@@ -46,9 +49,12 @@ const Report = (() => {
       rate: r.rate,
     }));
 
-    // ②
+    // ②：total ＝ ウォレット残高（手元）＋元本＋報酬。deposited ＝ 元本＋報酬（以前の total）
     const depositors = dep.people.filter((p) => p.principal > 0n)
-      .map((p) => ({ address: p.address, principal: p.principalTokens, reward: p.reward, total: p.principalTokens + p.reward, rankName: p.rankName, rate: p.rate, openDeposits: p.openDeposits, firstOpen: p.firstOpen }))
+      .map((p) => {
+        const w = tok(wallet.get(p.address) || 0n);
+        return { address: p.address, wallet: w, principal: p.principalTokens, reward: p.reward, deposited: p.principalTokens + p.reward, total: w + p.principalTokens + p.reward, rankName: p.rankName, rate: p.rate, openDeposits: p.openDeposits, firstOpen: p.firstOpen };
+      })
       .sort((a, b) => (a.total === b.total ? (a.address < b.address ? -1 : 1) : b.total - a.total));
     depositors.forEach((p, i) => { p.no = i + 1; });
 
@@ -65,10 +71,10 @@ const Report = (() => {
     for (const a of community) items.push({ amount: tok(wallet.get(a) || 0n) + tok((dep.people.find((p) => p.address === a) || { principal: 0n }).principal), community: true });
     const fishShare = F.share(items, supply);
 
-    return { now, supply, holders, depositors, rankShare: rankShare.filter((x) => x.count > 0 || x.name !== OUT), fishShare };
+    return { now, supply, holders, depositors, depositorsOrder: DEPOSITORS_ORDER, rankShare: rankShare.filter((x) => x.count > 0 || x.name !== OUT), fishShare };
   }
 
-  return { build };
+  return { build, DEPOSITORS_ORDER };
 })();
 
 if (typeof module !== 'undefined') module.exports = Report;
