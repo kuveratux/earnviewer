@@ -474,3 +474,5 @@ h2.sec-help { display: flex; align-items: center; gap: 8px; }
 /* 文中のリンクのようなボタン（ホームの「設定で入れる」など） */
 .link-btn { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: #9cc1ff; text-decoration: underline; cursor: pointer; box-shadow: none; }
 .teep-check { margin-top: 14px; font-weight: 600; }
+.recv-more { margin-top: 10px; }
+.onb-h { font-size: 14px; margin: 14px 0 6px; }

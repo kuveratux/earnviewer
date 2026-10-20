@@ -195,12 +195,18 @@
       <div id="recvInfo" class="kv kv-plain recv-info"></div>
       <div class="row">
         <button id="recvCheckBtn" class="primary">今すぐ確認</button>
-        <button id="inviteCodeBtn" type="button">招待コードを入れる</button>
       </div>
-      <div class="row">
-        <label class="button">ファイルから読み込む<input class="dataFile" type="file" accept="application/json,.json" multiple hidden></label>
-        <button id="forgetPassBtn" hidden>保存した合言葉を削除</button>
-      </div>
+      <!-- 新しい招待コードに切り替えるとき（iPhone のホーム画面のアプリは、招待リンクを開いても Safari が開くため、ここで受け取る） -->
+      <details id="recvMore" class="fold recv-more">
+        <summary>その他</summary>
+        <div class="fold-body">
+          <p class="muted">新しい招待を受け取ったときに使います（iPhone でホーム画面に追加したアプリなど）。招待リンクを開いた画面の［コードをコピー］でコピーしてから押してください。</p>
+          <div class="row">
+            <button type="button" class="primary pasteInviteBtn">コピーした招待コードで受け取る</button>
+            <button id="inviteCodeBtn" type="button">招待コードを入れる</button>
+          </div>
+        </div>
+      </details>
     </div>
     <div class="card">
       <h2>ランキングでの表示名</h2>

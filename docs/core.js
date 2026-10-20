@@ -342,7 +342,7 @@ async function renderDriveInfo() {
     el('div', { class: 'slot-text' }, el('span', { class: 'muted' }, slot.label()), el('b', {}, slots[slot.key] ? slots[slot.key].name : '未選択'),
       slotTimes(slot.key) ? el('span', { class: 'slot-meta' }, slotTimes(slot.key)) : null),
     el('button', { type: 'button', onclick: () => fetchFromDrive(slot.key) }, slots[slot.key] ? '選び直す' : '選ぶ'))));
-  $('forgetPassBtn').hidden = !pass;
+  if ($('forgetPassBtn')) $('forgetPassBtn').hidden = !pass;
 }
 
 document.querySelectorAll('.driveFetch').forEach((b) => b.addEventListener('click', () => {
@@ -358,7 +358,7 @@ if ($('driveSignOutBtn')) $('driveSignOutBtn').addEventListener('click', async (
   renderDriveInfo();
   alert('Google との連携を解除しました（次回はログインとファイルの選択からやり直します）');
 });
-$('forgetPassBtn').addEventListener('click', async () => {
+if ($('forgetPassBtn')) $('forgetPassBtn').addEventListener('click', async () => {
   await delSetting('passphrase');
   renderDriveInfo();
   alert('保存していた合言葉を削除しました');
@@ -747,7 +747,7 @@ async function renderRecvInfo() {
   ];
   if (publicState === 'ng') rows.push(['状態', '受け取れませんでした（共有の設定を招待した人に確かめてもらってください）']);
   $('recvInfo').replaceChildren(...kvRows(rows));
-  $('forgetPassBtn').hidden = !(await getSetting('passphrase'));
+  if ($('forgetPassBtn')) $('forgetPassBtn').hidden = !(await getSetting('passphrase')); // 2026-10 にボタンはなくした
 }
 
 if (RECEIVE) {
@@ -815,13 +815,20 @@ function showOnboard(kind, id) {
       onbStep(2, 'メニューにないときは、［リンクをコピー］を押して、Safari（Android は Chrome）のアドレス欄に貼り付けて開いてください。')];
     btns = [btn('リンクをコピー', true, copy(inviteLinkOf(id), '招待リンクをコピーしました')), useHere];
   } else if (kind === 'ios') {
-    title = 'ホーム画面に追加して使います';
+    // iPhone は Safari からホーム画面のアプリを開けないので、コードをコピーしてアプリで受け取る
+    // はじめて使う人と、すでにホーム画面のアプリを使っている人（新しい招待に切り替える）で手順を分ける（2026-10）
+    title = '招待コードをアプリで受け取ります';
     const sh = el('span', {}); sh.innerHTML = SHARE_ICON; // 固定の図形だけ
-    body = [onbStep(1, '［コードをコピー］を押します。'),
-      onbStep(2, '画面下（iPad は右上）の共有ボタン ', sh, ' を押し、［ホーム画面に追加］→［追加］を押します。'),
-      onbStep(3, 'ホーム画面の「' + APP.defaultName + '」を開き、［コピーした招待コードで受け取る］を押して、合言葉を入れます。'),
-      el('p', { class: 'muted' }, 'iPhone では、ホーム画面に追加したアプリは Safari と別に情報を持つため、招待コードを入れて受け取ります。'),
-      el('p', { class: 'mono invite-code' }, id)];
+    body = [el('p', {}, 'まず［コードをコピー］を押してください。そのあと、次のどちらかの手順で受け取ります。'),
+      el('p', { class: 'mono invite-code' }, id),
+      el('h3', { class: 'onb-h' }, 'すでにホーム画面の「' + APP.defaultName + '」を使っている'),
+      onbStep(1, 'ホーム画面の「' + APP.defaultName + '」を開きます。'),
+      onbStep(2, '「設定」→「インポートデータ」の「その他」を開き、［コピーした招待コードで受け取る］を押します（データがまだないときは、最初の画面のボタンでも受け取れます）。'),
+      onbStep(3, '「置き換えますか？」に［OK］を押し、合言葉を入れます。'),
+      el('h3', { class: 'onb-h' }, 'はじめて使う'),
+      onbStep(1, '画面下（iPad は右上）の共有ボタン ', sh, ' を押し、［ホーム画面に追加］→［追加］を押します。'),
+      onbStep(2, 'ホーム画面の「' + APP.defaultName + '」を開き、［コピーした招待コードで受け取る］を押して、合言葉を入れます。'),
+      el('p', { class: 'muted' }, 'iPhone では、ホーム画面に追加したアプリは Safari と別に情報を持ち、Safari からは開けないため、招待コードで受け取ります。')];
     btns = [btn('コードをコピー', true, copy(id, '招待コードをコピーしました')), useHere];
   } else {
     title = 'まずアプリをインストールしてください';
