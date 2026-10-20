@@ -137,9 +137,9 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
       // 報酬枚数：1行目に枚数、2行目に1日あたり
       ['報酬枚数', el('span', {}, hid(fmtInt(reward)) + ' ' + sym, el('br'), el('span', { class: 'per-day' }, hid(fmtDec2(w.share * s.rateNow / 365)) + ' ' + sym + '/日'))],
       ['預入日時', fmtDate(split.t)],
-      // 預入期間：「EARN Tier：Gold 9.75% 30日」の形。ランクと年利は今のもの（新EARN Tier の期間は、預入枚数のランクの年利 × TEEP の倍率で出した結果）
+      // 預入期間：「EARN Tier：Gold(9.75%) 30日」の形。ランクと年利は今のもの（新EARN Tier の期間は、預入枚数のランクの年利 × TEEP の倍率で出した結果）
       // 旧・新の日数の内訳は出さない（2026-10 ユーザー指示）
-      ['預入期間', 'EARN Tier：' + rankText(s.rankNow, s.rateNow) + ' ' + s.days + '日'],
+      ['預入期間', 'EARN Tier：' + hid(s.rankNow ? s.rankNow.name + '(' + pct(s.rateNow) + ')' : 'ランク外(0%)') + ' ' + s.days + '日'],
     ];
     const key = 'reward-' + w.id;
     const d = el('details', { class: 'fold' },
@@ -287,8 +287,9 @@ function renderAsset(who, s, all = who) {
     $('heroLabel').textContent = APP.id === 'manager' ? '資産額（' + labelOf_(who[0]) + '）' : '資産額';
     $('heroValue').textContent = price ? yen(c.coins * price) : '—';
     if (price && !(c.cost > 0)) {
-      // 購入金額が未入力：設定タブの「購入金額」へ移るリンク
-      $('heroSub').replaceChildren('購入金額が未入力です（', el('button', { type: 'button', class: 'link-btn', onclick: goCostInput }, '設定で入れる'), '）');
+      // 購入金額が未入力（購入枚数も未入力なら両方を出す）：設定タブの入力欄へ移るリンク
+      const what = buyQty > 0 ? '購入金額' : '購入枚数、購入金額';
+      $('heroSub').replaceChildren(what + 'が未入力です。', el('button', { type: 'button', class: 'link-btn', onclick: goCostInput }, '設定で入れる'));
     } else {
       $('heroSub').textContent = !price ? '現在価格が未設定のため、資産額は表示できません' : '含み損益 ' + gain(c, price);
     }
@@ -391,11 +392,11 @@ $('trialInput').addEventListener('change', async () => {
 });
 document.querySelectorAll('#periodSeg button').forEach((b) => b.addEventListener('click', () => { assetPeriod = b.dataset.period; refreshAll(); }));
 if ($('simSel')) $('simSel').addEventListener('change', () => { simWho = $('simSel').value; refreshAll(); });
-// 設定タブを開いて「購入金額」の入力欄へ移る
+// 設定タブを開いて購入枚数（入れてあれば購入金額）の入力欄へ移る
 function goCostInput() {
   document.querySelector('[data-tab=settings]').click();
   window.scrollTo(0, 0);
-  const inp = $('costInput');
+  const inp = buyQty > 0 ? $('costInput') : $('qtyInput'); // 未入力の欄から
   setTimeout(() => { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus(); }, 50);
 }
 function renderCalcSettings() {

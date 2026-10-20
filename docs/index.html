@@ -191,11 +191,8 @@
   <section id="tab-settings" class="tab" hidden>
     <!-- インポートデータ（2026-10）：招待リンク・招待コードで覚えたファイルを、ログインなしで自動で受け取る -->
     <div class="card">
-      <h2>インポートデータ</h2>
+      <div class="card-head"><h2>インポートデータ</h2><button id="recvCheckBtn" class="primary">今すぐ確認</button></div>
       <div id="recvInfo" class="kv kv-plain recv-info"></div>
-      <div class="row">
-        <button id="recvCheckBtn" class="primary">今すぐ確認</button>
-      </div>
       <!-- 新しい招待コードに切り替えるとき（iPhone のホーム画面のアプリは、招待リンクを開いても Safari が開くため、ここで受け取る） -->
       <details id="recvMore" class="fold recv-more">
         <summary>その他</summary>
@@ -223,7 +220,6 @@
         <label class="field">TEEP<select id="teepSel"></select></label>
       </div>
       <p id="teepNote" class="note" hidden></p>
-      <p class="muted">TEEP資格があるときはチェックを入れて、TEEP を選びます。新EARN Tier の年利に TEEP の倍率を掛けて計算します（旧EARN Tier の期間には掛けません）。チェックしていないときは 100% で計算します。</p>
     </div>
     <div class="card">
       <h2>アドレス一覧</h2>
