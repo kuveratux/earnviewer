@@ -116,6 +116,8 @@ function renderRankingTab(targets) {
   //   ウォレット残高は保有者の一覧（v.holders）から。自分の行は取得のときの残高（selfWallet）
   const walletOf_ = new Map(v.holders.map((h) => [h.address, h.wallet]));
   const deps = v.depositors.map((r) => { const wallet = walletOf_.get(r.address) || 0; return { ...r, wallet, total: wallet + r.principal + r.reward }; });
+  // 保有者の順位で、預けている人の EARN Tier（枚数の前にアイコンを出す。2026-10 ユーザー指示）
+  const tierOfAddr = new Map(deps.map((r) => [r.address, r.rankName]));
   const depositors = ins(deps, (x) => ({ split: x, wallet: x.wallet, principal: x.share, reward: x.reward, total: x.total, rankName: s.rankNow ? s.rankNow.name : null, rate: s.rateNow }));
   const others = v.holders.filter((h) => h.address !== self);
 
@@ -174,6 +176,8 @@ function renderRankingTab(targets) {
         rankListKind === 'holders' ? fishBadge(r.fish) : tierIcon(r.rankName),
         r.split ? el('span', { class: 'rk-name' }, r.split.name) : el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(r.address) }, nameOf(r.address)),
         rankListKind === 'holders' ? null : el('span', { class: 'rk-tname' }, r.rankName || 'ランク外'),
+        // 保有者の順位：預けている人（自分の行は EARN があるとき）だけ、枚数の前に EARN Tier のアイコン
+        rankListKind === 'holders' && (r.split ? true : r.principal > 0) ? tierIcon(r.split ? (s.rankNow && s.rankNow.name) : tierOfAddr.get(r.address)) : null,
         el('span', { class: 'rk-total' }, fmtInt(r.total) + ' ' + sym)),
       el('div', { class: 'rank-sub' }, sub));
   }));
