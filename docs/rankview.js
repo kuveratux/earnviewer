@@ -44,6 +44,35 @@ function rankChange(kind, address, curNo, adjust = true) {
   return el('span', { class: 'rk-chg ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'same') }, d > 0 ? '↑' + d : d < 0 ? '↓' + -d : '－');
 }
 
+// ---- EARN Tier のアイコン（宝石のバッジ。design/icons/tier_candidates の案C。2026-10 ユーザー決定）
+// ランクの名前 → 見た目：General＝Bronze、Standard＝Silver、Gold＝Gold、Platinum＝Platinum、Premium＝Diamond、利用なし・ランク外＝灰色
+// 表にない名前は、新ランク表の並び（下から上）で Bronze → Diamond を割り当てる
+const TIER_STYLES = {
+  bronze: { c: ['#f6c79a', '#c9834a', '#7a4520'], n: 1 }, silver: { c: ['#ffffff', '#c7d0dd', '#7d8796'], n: 2 }, gold: { c: ['#fff3c4', '#e8c06a', '#9c6f22'], n: 3 },
+  platinum: { c: ['#f2fbff', '#a9d9e6', '#5c8fa3'], n: 4 }, diamond: { c: ['#ffffff', '#8fd8ff', '#2a6fd6'], n: 5 }, none: { c: ['#9aa3b5', '#6b7488', '#3d4454'], n: 0 },
+};
+const TIER_BY_NAME = { General: 'bronze', Standard: 'silver', Gold: 'gold', Platinum: 'platinum', Premium: 'diamond', '利用なし': 'none', 'ランク外': 'none' };
+const tierIconCache = {};
+function tierStyleKey(name) {
+  if (!name) return 'none';
+  if (TIER_BY_NAME[name]) return TIER_BY_NAME[name];
+  const order = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
+  const i = ((ranks.new && ranks.new.ranks) || []).findIndex((r) => r.name === name);
+  return i < 0 ? 'none' : order[Math.min(i, order.length - 1)];
+}
+function tierIconUrl(key) {
+  if (tierIconCache[key]) return tierIconCache[key];
+  const t = TIER_STYLES[key], g = 'k' + key;
+  const one = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-8 -3 L-5 -8 L5 -8 L8 -3 L0 8 Z" fill="url(#${g})" stroke="${t.c[2]}" stroke-width="1"/><path d="M-8 -3 L8 -3 M-5 -8 L-2 -3 L0 8 L2 -3 L5 -8" fill="none" stroke="${t.c[0]}" stroke-width=".8" opacity=".9"/></g>`;
+  const pos = { 1: [[32, 32, 1.6]], 2: [[24, 33, 1.2], [40, 33, 1.2]], 3: [[32, 26, 1.1], [22, 38, 1.0], [42, 38, 1.0]], 4: [[24, 26, 1.0], [40, 26, 1.0], [24, 40, 1.0], [40, 40, 1.0]], 5: [[32, 22, 1.0], [20, 32, 0.9], [44, 32, 0.9], [25, 44, 0.9], [39, 44, 0.9]] }[t.n] || [];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${t.c[0]}"/><stop offset=".5" stop-color="${t.c[1]}"/><stop offset="1" stop-color="${t.c[2]}"/></linearGradient></defs>` +
+    `<circle cx="32" cy="33" r="26" fill="#0b1630" stroke="url(#${g})" stroke-width="4"/>` +
+    (t.n ? pos.map(([x, y, s]) => one(x, y, s)).join('') : `<path d="M24 33 L40 33" stroke="${t.c[1]}" stroke-width="3" stroke-linecap="round"/>`) + '</svg>';
+  return (tierIconCache[key] = 'data:image/svg+xml;base64,' + btoa(svg));
+}
+// アイコン＋名前（利率は出さない）
+const tierBadge = (name) => el('span', { class: 'rk-tier' }, el('img', { src: tierIconUrl(tierStyleKey(name)), alt: '', width: '16', height: '16' }), name || 'ランク外');
+
 const fishBadge = (name, big) => el('span', { class: 'fish' + (big ? ' big' : ''), title: name + '（' + (FISH_JA[name] || '') + '）' }, FISH_EMOJI[name] || '');
 
 // 分配後の持ち分（Manager 分・Agent 分）。Agent アプリは Manager 分を一覧に出さないが、人数・順位には数える
@@ -83,8 +112,11 @@ function renderRankingTab(targets) {
   const ins = (rows, extra) => [...rows.filter((r) => r.address !== self).map((r, i) => ({ ...r, otherNo: i + 1 })), ...shares.map(extra)]
     .sort((a, b) => b.total - a.total).map((r, i) => ({ ...r, no: i + 1 }));
   const holders = ins(v.holders, (x) => ({ split: x, wallet: x.wallet, principal: x.share, reward: x.reward, total: x.total, share: x.total / v.supply * 100, fish: Fish.classify(x.total, v.supply).name }));
-  // 預入ランキングは元本＋報酬（手元は入れない）
-  const depositors = ins(v.depositors, (x) => ({ split: x, principal: x.share, reward: x.reward, total: x.share + x.reward, rankName: s.rankNow ? s.rankNow.name : null, rate: s.rateNow }));
+  // 預入（EARN）ランキング：ウォレット残高＋元本＋報酬の多い順（2026-10 ユーザー指示。以前は元本＋報酬だけ）
+  //   ウォレット残高は保有者の一覧（v.holders）から。自分の行は取得のときの残高（selfWallet）
+  const walletOf_ = new Map(v.holders.map((h) => [h.address, h.wallet]));
+  const deps = v.depositors.map((r) => { const wallet = walletOf_.get(r.address) || 0; return { ...r, wallet, total: wallet + r.principal + r.reward }; });
+  const depositors = ins(deps, (x) => ({ split: x, wallet: x.wallet, principal: x.share, reward: x.reward, total: x.total, rankName: s.rankNow ? s.rankNow.name : null, rate: s.rateNow }));
   const others = v.holders.filter((h) => h.address !== self);
 
   // 一番上：保有枚数と推定順位（Manager 分・Agent 分は一覧の中の順位、合算はほかの保有者と比べた順位）
@@ -94,12 +126,12 @@ function renderRankingTab(targets) {
       // 保有枚数：分配＋報酬。Manager 分と合算には配布先の手元も入れる
       const amount = w.share + w.share * s.factor + selfWallet;
       const mergedRow = merged ? holders.find((r) => r.address === selfAddr) : null;
-      // 推定順位は選んでいる枠に合わせる（2026-10 ユーザー指示）：保有者＝保有者全体の中（手元＋元本＋報酬）、EARN＝EARN 利用者の中（元本＋報酬）
+      // 推定順位は選んでいる枠に合わせる（2026-10 ユーザー指示）：保有者＝保有者全体の中、EARN＝EARN 利用者の中（どちらもウォレット残高＋元本＋報酬）
       const earn = rankListKind === 'depositors' || rankListKind === 'rankShare';
       const list = earn ? depositors : holders;
       const row = merged ? list.find((r) => r.address === selfAddr) : list.find((r) => r.split && r.split.id === w.id);
-      const base = earn ? v.depositors.filter((h) => h.address !== self) : others;
-      const cmpAmount = earn ? w.share + w.share * s.factor : amount;
+      const base = earn ? deps.filter((h) => h.address !== self) : others;
+      const cmpAmount = amount;
       const est = row ? row.no : base.filter((h) => h.total > cmpAmount).length + 1;
       const of = row ? list.length : base.length + 1;
       const canJump = row && (merged || row.split.show);
@@ -131,14 +163,16 @@ function renderRankingTab(targets) {
     const sub = rankListKind === 'holders'
       // 行の内訳は英字（Wallet・Deposit・Reward。2026-10 ユーザー指示。ほかの画面は日本語のまま）
       ? (r.split ? 'Wallet ' + fmtInt(r.wallet) + '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward) : 'Wallet ' + fmtInt(r.wallet) + (r.principal > 0 ? '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward) : '')) + '（' + r.share.toFixed(2) + '%）'
-      : (r.rankName ? r.rankName + ' ' + pct(r.rate) : 'ランク外') + '・' + 'Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward);
+      : 'Wallet ' + fmtInt(r.wallet) + '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward); // EARN Tier は上の行（アドレスと枚数の間）
     const mine = r.split ? r.split.id : merged && r.address === selfAddr ? 'total' : ''; // 自分の行（枠全体を強調・ジャンプ先）
     return el('li', { class: 'rank-row' + (mine ? ' self' : ''), ...(mine ? { 'data-split': mine } : {}) },
       el('div', { class: 'rank-line' },
         el('span', { class: 'rk-no' }, String(r.no)),
-        r.split ? null : rankChange(rankListKind, r.address, merged ? r.no : r.otherNo, !merged),
+        // 前回からの順位の変化：EARN は並べ方（ウォレット残高を含める）が保有者ランキング取得エクセルの前回の順位と違うので出さない
+        r.split || rankListKind !== 'holders' ? null : rankChange(rankListKind, r.address, merged ? r.no : r.otherNo, !merged),
         rankListKind === 'holders' ? fishBadge(r.fish) : null,
         r.split ? el('span', { class: 'rk-name' }, r.split.name) : el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(r.address) }, nameOf(r.address)),
+        rankListKind === 'holders' ? null : tierBadge(r.rankName),
         el('span', { class: 'rk-total' }, fmtInt(r.total) + ' ' + sym)),
       el('div', { class: 'rank-sub' }, sub));
   }));
