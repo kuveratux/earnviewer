@@ -72,8 +72,6 @@ function tierIconUrl(key) {
 }
 // アイコンだけ（報酬タブの預入期間・資産シミュレーション・EARN 割合の表で使う）
 const tierIcon = (name) => el('img', { class: 'tier-icon', src: tierIconUrl(tierStyleKey(name)), alt: '', width: '16', height: '16' });
-// アイコン＋名前（利率は出さない）
-const tierBadge = (name) => el('span', { class: 'rk-tier' }, el('img', { src: tierIconUrl(tierStyleKey(name)), alt: '', width: '16', height: '16' }), name || 'ランク外');
 
 const fishBadge = (name, big) => el('span', { class: 'fish' + (big ? ' big' : ''), title: name + '（' + (FISH_JA[name] || '') + '）' }, FISH_EMOJI[name] || '');
 
@@ -168,16 +166,18 @@ function renderRankingTab(targets) {
       : 'Wallet ' + fmtInt(r.wallet) + '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward); // EARN Tier は上の行（アドレスと枚数の間）
     const mine = r.split ? r.split.id : merged && r.address === selfAddr ? 'total' : ''; // 自分の行（枠全体を強調・ジャンプ先）
     return el('li', { class: 'rank-row' + (mine ? ' self' : ''), ...(mine ? { 'data-split': mine } : {}) },
-      el('div', { class: 'rank-line' },
+      el('div', { class: 'rank-line' + (rankListKind === 'holders' ? '' : ' earn') },
         el('span', { class: 'rk-no' }, String(r.no)),
         // 前回からの順位の変化：EARN は並べ方（ウォレット残高を含める）が保有者ランキング取得エクセルの前回の順位と違うので出さない
         r.split || rankListKind !== 'holders' ? null : rankChange(rankListKind, r.address, merged ? r.no : r.otherNo, !merged),
-        rankListKind === 'holders' ? fishBadge(r.fish) : null,
+        // アイコンはアドレスの前（保有者は魚の分類、EARN は EARN Tier）。EARN Tier の名前はアドレスの後に、先頭をそろえて（2026-10 ユーザー指示）
+        rankListKind === 'holders' ? fishBadge(r.fish) : tierIcon(r.rankName),
         r.split ? el('span', { class: 'rk-name' }, r.split.name) : el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(r.address) }, nameOf(r.address)),
-        rankListKind === 'holders' ? null : tierBadge(r.rankName),
+        rankListKind === 'holders' ? null : el('span', { class: 'rk-tname' }, r.rankName || 'ランク外'),
         el('span', { class: 'rk-total' }, fmtInt(r.total) + ' ' + sym)),
       el('div', { class: 'rank-sub' }, sub));
   }));
+  fitRankLines();
   $('rankMore').hidden = list.length <= rankShown;
   $('rankMore').textContent = 'さらに表示（' + Math.min(RANK_PAGE, list.length - rankShown) + '件／残り ' + (list.length - rankShown) + '件）';
   // 推定順位を押したとき：その行まで移って、一瞬光らせる
@@ -191,6 +191,28 @@ function renderRankingTab(targets) {
     }
   }
 }
+
+// 一覧の行を1行に収める：はみ出す行だけ文字を少しずつ小さくする（内訳は 9px まで、上の行の枚数は 11px まで）
+// 一覧が見えていないとき（幅が 0）は何もしない。タブを開いたとき・画面の幅が変わったときにやり直す
+function fitRankLines() {
+  const list = $('rankList');
+  if (!list || !list.clientWidth) return;
+  const shrink = (e, min) => {
+    e.style.fontSize = '';
+    let fs = parseFloat(getComputedStyle(e).fontSize);
+    while (e.scrollWidth > e.clientWidth + 1 && fs > min) { fs -= 0.5; e.style.fontSize = fs + 'px'; }
+  };
+  list.querySelectorAll('.rank-sub').forEach((e) => shrink(e, 9));
+  list.querySelectorAll('.rank-line').forEach((line) => {
+    const t = line.querySelector('.rk-total');
+    if (!t) return;
+    t.style.fontSize = '';
+    let fs = parseFloat(getComputedStyle(t).fontSize);
+    while (line.scrollWidth > line.clientWidth + 1 && fs > 11) { fs -= 0.5; t.style.fontSize = fs + 'px'; }
+  });
+}
+document.querySelector('[data-tab=ranking]').addEventListener('click', () => setTimeout(fitRankLines, 0));
+window.addEventListener('resize', () => { clearTimeout(fitRankLines.timer); fitRankLines.timer = setTimeout(fitRankLines, 150); });
 
 // 推定順位を押したとき：その順位の一覧（保有者または EARN）に切り替え、その行が出るまで表示を広げてから移る
 function jumpToRank(id, kind = 'holders') {

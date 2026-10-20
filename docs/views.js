@@ -287,13 +287,9 @@ function renderAsset(who, s, all = who) {
     const c = calc(who[0]);
     $('heroLabel').textContent = APP.id === 'manager' ? '資産額（' + labelOf_(who[0]) + '）' : '資産額';
     $('heroValue').textContent = price ? yen(c.coins * price) : '—';
-    if (price && !(c.cost > 0)) {
-      // 購入金額が未入力（購入枚数も未入力なら両方を出す）：設定タブの入力欄へ移るリンク
-      const what = buyQty > 0 ? '購入金額' : '購入枚数、購入金額';
-      $('heroSub').replaceChildren(what + 'が未入力です。', el('button', { type: 'button', class: 'link-btn', onclick: goCostInput }, '設定で入れる'));
-    } else {
-      $('heroSub').textContent = !price ? '現在価格が未設定のため、資産額は表示できません' : '含み損益 ' + gain(c, price);
-    }
+    // 購入金額が未入力のときは何も出さない（購入情報の表に「未入力（設定で入れる）」を出す。2026-10 ユーザー指示）
+    $('heroSub').textContent = !price ? '現在価格が未設定のため、資産額は表示できません' : c.cost > 0 ? '含み損益 ' + gain(c, price) : '';
+    $('heroSub').hidden = !$('heroSub').textContent;
   }
   // 現在価格：資産額の根拠として、すぐ下に小さく（取得エクセルで入れた値なので、データの作成日を「時点」として添える）
   const asOf = new Date(data.generatedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' });
@@ -309,9 +305,11 @@ function renderAsset(who, s, all = who) {
       ['報酬枚数', hid(fmtInt(w.share * s.factor)) + ' ' + sym],
     ];
     // 購入情報（内訳とは別のまとまり。設定の「計算の設定」で入れた購入枚数・購入金額から）
+    // 未入力のときは「未入力（設定で入れる）」。押すと設定タブのその入力欄へ
+    const notSet = (id) => el('span', {}, '未入力（', el('button', { type: 'button', class: 'link-btn', onclick: () => goCalcInput(id) }, '設定で入れる'), '）');
     const buys = [
-      ['購入枚数', buyQty > 0 ? hid(fmtInt(buyQty)) + ' ' + sym : '未入力'],
-      ['購入金額', c.cost > 0 ? yen(c.cost) : '未入力'],
+      ['購入枚数', buyQty > 0 ? hid(fmtInt(buyQty)) + ' ' + sym : notSet('qtyInput')],
+      ['購入金額', c.cost > 0 ? yen(c.cost) : notSet('costInput')],
       ['購入分の平均単価', buyQty > 0 && c.cost > 0 ? yenUnit(c.cost / buyQty) : na],
       ['総枚数の平均単価', c.coins > 0 && c.cost > 0 ? yenUnit(c.cost / c.coins) : na],
     ];
@@ -394,11 +392,11 @@ $('trialInput').addEventListener('change', async () => {
 });
 document.querySelectorAll('#periodSeg button').forEach((b) => b.addEventListener('click', () => { assetPeriod = b.dataset.period; refreshAll(); }));
 if ($('simSel')) $('simSel').addEventListener('change', () => { simWho = $('simSel').value; refreshAll(); });
-// 設定タブを開いて購入枚数（入れてあれば購入金額）の入力欄へ移る
-function goCostInput() {
+// 設定タブを開いて、計算の設定の入力欄（購入枚数・購入金額）へ移る
+function goCalcInput(id) {
   document.querySelector('[data-tab=settings]').click();
   window.scrollTo(0, 0);
-  const inp = buyQty > 0 ? $('costInput') : $('qtyInput'); // 未入力の欄から
+  const inp = $(id);
   setTimeout(() => { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus(); }, 50);
 }
 function renderCalcSettings() {
