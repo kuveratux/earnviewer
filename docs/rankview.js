@@ -276,6 +276,7 @@ const SHARE_GRAY = '#6b7488';
 const SHARE_GRAY_DARK = '#454e60'; // EARN の「預入なし」（地に 2.19:1。レベル外の灰色より暗い）
 const rampFor = (n) => Array.from({ length: n }, (_, i) => SHARE_RAMP[n === 1 ? SHARE_RAMP.length - 1 : Math.round(i * (SHARE_RAMP.length - 1) / (n - 1))]); // 低い→高い
 let shareSel = { rankShare: null, fishShare: null }; // 押して選んだ区分
+let fishScope = 'all'; // トークン配分内訳の範囲：'all'＝運営を含むトークン全体、'holders'＝保有者だけ（運営を除く。2026-10 ユーザー指示）
 
 // ③ EARN：保有者全員の、ランク（画面では「レベル」）別の人数。預けていない人は「預入なし」（2026-10 ユーザー指示）
 //   一覧と同じく、分配の行は Manager 分・Agent 分として数える。上位のレベルから
@@ -304,11 +305,12 @@ function fishShareOf(holders, v) {
   const items = holders.map((h) => ({ amount: h.wallet + h.principal, community: false }));
   const base = Fish.share(items, v.supply);
   const com = v.fishShare.find((x) => x.name === Fish.COMMUNITY.name);
-  const rows = base.map((x) => (x.name === Fish.COMMUNITY.name ? { ...x, count: com.count, amount: com.amount } : x));
+  const rows = base.map((x) => (x.name === Fish.COMMUNITY.name ? { ...x, count: com.count, amount: com.amount } : x))
+    .filter((x) => fishScope === 'all' || x.name !== Fish.COMMUNITY.name); // 保有者だけのときは運営の行を除き、割合も保有者の合計で割る
   const total = rows.reduce((t, r) => t + r.amount, 0);
   const colors = rampFor(Fish.CLASSES.length).reverse(); // Whale が明るい
   return {
-    unit: data.token.symbol, total, center: rows.reduce((t, r) => t + r.count, 0).toLocaleString('ja-JP') + '件', centerSub: '保有者（運営を含む）',
+    unit: data.token.symbol, total, center: rows.reduce((t, r) => t + r.count, 0).toLocaleString('ja-JP') + '件', centerSub: fishScope === 'all' ? '保有者（運営を含む）' : '保有者（運営を除く）',
     rows: rows.map((r) => {
       const ci = Fish.CLASSES.findIndex((c) => c.name === r.name);
       const com = ci < 0;
@@ -389,7 +391,15 @@ function renderShare(d, kind) {
       tr.addEventListener('click', () => pick(r.key));
       return tr;
     }));
-  $('rankShareBox').replaceChildren(el('h2', {}, kind === 'rankShare' ? 'EARN利用者比率' : 'トークン配分内訳'), el('div', { class: 'donut-wrap' }, svg), el('div', { class: 'scroll' }, table));
+  // トークン配分内訳は、運営を含む全体／保有者だけを切り替えられる
+  const scopeSeg = kind !== 'fishShare' ? null : el('div', { class: 'seg share-scope' },
+    ...[['all', 'トークン全体'], ['holders', '保有者のみ']].map(([k, t]) => {
+      const b = el('button', { type: 'button', 'aria-pressed': String(fishScope === k) }, t);
+      b.addEventListener('click', () => { if (fishScope === k) return; fishScope = k; shareSel.fishShare = null; refreshAll(); });
+      return b;
+    }));
+  const note = kind !== 'fishShare' ? null : el('p', { class: 'muted share-note' }, fishScope === 'all' ? '運営を含むトークン全体に対する割合です。' : '運営を除いた、保有者の合計に対する割合です。');
+  $('rankShareBox').replaceChildren(el('h2', {}, kind === 'rankShare' ? 'EARN利用者比率' : 'トークン配分内訳'), scopeSeg, note, el('div', { class: 'donut-wrap' }, svg), el('div', { class: 'scroll' }, table));
 }
 
 // ---- Community（運営）の表示：名前・色・画像はデータで配られる（views.js の communityStyle。取得エクセルの設定シートで決める）

@@ -511,3 +511,7 @@ h2.sec-help { display: flex; align-items: center; gap: 8px; }
 .prog-head .tier-inline { display: inline-flex; align-items: center; white-space: nowrap; flex-wrap: nowrap; }
 .prog-head .tier-nb { display: inline-flex; align-items: center; gap: 3px; color: var(--text); }
 .prog-foot { margin-top: 4px; font-size: 11px; color: var(--muted); text-align: right; }
+/* トークン配分内訳の範囲の切り替え（トークン全体／保有者のみ） */
+.share-scope { display: flex; width: 100%; margin: 4px 0 6px; }
+.share-scope button { flex: 1; padding: 6px 8px; font-size: 13px; }
+.share-note { margin: 0 0 4px; font-size: 12px; }
