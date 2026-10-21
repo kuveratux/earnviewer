@@ -36,6 +36,8 @@ function rankingView(now) {
 //   前回の順位（配布先の行を含む）から、配布先が上にいた分を引く
 function rankChange(kind, address, curNo, adjust = true) {
   const prev = data.ranking.previous;
+  // EARN の順位は、前回も今と同じ並び（ウォレット残高＋元本＋報酬）で比べたときだけ出す（E-03、ESV 2.1 と同じ。以前の並びとは比べない）
+  if (kind === 'depositors' && data.ranking.depositorsOrder !== Report.DEPOSITORS_ORDER) return null;
   if (!prev || !prev[kind] || !(address in prev[kind])) return null;
   const p = prev[kind][address];
   if (p == null) return el('span', { class: 'rk-chg new' }, '新');
@@ -176,8 +178,8 @@ function renderRankingTab(targets) {
     return el('li', { class: 'rank-row' + (mine ? ' self' : ''), ...(mine ? { 'data-split': mine } : {}) },
       el('div', { class: 'rank-line' + (rankListKind === 'holders' ? '' : ' earn') },
         el('span', { class: 'rk-no' }, String(r.no)),
-        // 前回からの順位の変化：EARN は並べ方（ウォレット残高を含める）が保有者ランキング取得エクセルの前回の順位と違うので出さない
-        r.split || rankListKind !== 'holders' ? null : rankChange(rankListKind, r.address, merged ? r.no : r.otherNo, !merged),
+        // 前回からの順位の変化：EARN はデータの並びの印がそろっているときだけ（rankChange で見分ける。E-03）
+        r.split ? null : rankChange(rankListKind, r.address, merged ? r.no : r.otherNo, !merged),
         // アイコンはアドレスの前（保有者は魚の分類、EARN は EARN Tier）。EARN Tier の名前はアドレスの後に、先頭をそろえて（2026-10 ユーザー指示）
         rankListKind === 'holders' ? fishBadge(r.fish) : tierIcon(r.rankName),
         r.split ? el('span', { class: 'rk-name' }, r.split.name) : mine === 'wallet' ? el('span', { class: 'rk-name' }, (rankSelfName || '').trim() || '自分') : el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(r.address) }, nameOf(r.address)),
@@ -187,6 +189,10 @@ function renderRankingTab(targets) {
         el('span', { class: 'rk-total' }, fmtInt(r.total) + ' ' + sym)),
       el('div', { class: 'rank-sub' }, sub));
   }));
+  // EARN の一覧で前回からの変化の印があるときは、印のない行（自分の行など）に同じ幅の空きを入れて、Tier の名前の先頭をそろえる（ESV 2.1.2 と同じ）
+  if (rankListKind !== 'holders' && $('rankList').querySelector('.rk-chg')) {
+    $('rankList').querySelectorAll('.rank-line.earn').forEach((l) => { if (!l.querySelector('.rk-chg')) l.children[0].after(el('span', { class: 'rk-chg-ph' })); });
+  }
   fitRankLines();
   $('rankMore').hidden = list.length <= rankShown;
   $('rankMore').textContent = 'さらに表示（' + Math.min(RANK_PAGE, list.length - rankShown) + '件／残り ' + (list.length - rankShown) + '件）';
