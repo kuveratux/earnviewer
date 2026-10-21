@@ -111,7 +111,12 @@ function renderRankingTab(targets) {
   });
   const ins = (rows, extra) => [...rows.filter((r) => r.address !== self).map((r, i) => ({ ...r, otherNo: i + 1 })), ...shares.map(extra)]
     .sort((a, b) => b.total - a.total).map((r, i) => ({ ...r, no: i + 1 }));
-  const holders = ins(v.holders, (x) => ({ split: x, wallet: x.wallet, principal: x.share, reward: x.reward, total: x.total, share: x.total / v.supply * 100, fish: Fish.classify(x.total, v.supply).name }));
+  // 預入していないとき（EARN の取引がない）：自分のアドレスの行を、取得のときのウォレット残高（selfWallet）に置き換えて並べる
+  //   ランキングの一番上に、保有者の中の推定順位と次の順位までを出すため（2026-10 ユーザー指示）
+  const walletAddr = !split && rg.self && selfWallet > 0 ? rg.self.toLowerCase() : '';
+  const holderSrc = !walletAddr ? v.holders : [...v.holders.filter((h) => h.address !== walletAddr),
+    { ...(v.holders.find((h) => h.address === walletAddr) || { address: walletAddr, principal: 0, reward: 0 }), wallet: selfWallet, principal: 0, reward: 0, total: selfWallet, share: selfWallet / v.supply * 100, fish: Fish.classify(selfWallet, v.supply).name }];
+  const holders = ins(holderSrc, (x) => ({ split: x, wallet: x.wallet, principal: x.share, reward: x.reward, total: x.total, share: x.total / v.supply * 100, fish: Fish.classify(x.total, v.supply).name }));
   // 預入（EARN）ランキング：ウォレット残高＋元本＋報酬の多い順（2026-10 ユーザー指示。以前は元本＋報酬だけ）
   //   ウォレット残高は保有者の一覧（v.holders）から。自分の行は取得のときの残高（selfWallet）
   const walletOf_ = new Map(v.holders.map((h) => [h.address, h.wallet]));
@@ -123,7 +128,7 @@ function renderRankingTab(targets) {
 
   // 一番上：保有枚数と推定順位（Manager 分・Agent 分は一覧の中の順位、合算はほかの保有者と比べた順位）
   const multi = APP.id === 'manager';
-  $('rankCards').replaceChildren(...(targets.length ? [] : [el('div', { class: 'card' }, el('p', { class: 'muted' }, split ? '表示する対象がありません。「設定」の「保有枚数の表示」で選んでください。' : '「EARN」に仕分けた取引がないため、保有枚数はありません。'))]),
+  $('rankCards').replaceChildren(...(targets.length ? [] : walletAddr ? [walletOnlyCard(holders, walletAddr, selfWallet, v, sym)] : [el('div', { class: 'card' }, el('p', { class: 'muted' }, split ? '表示する対象がありません。「設定」の「保有枚数の表示」で選んでください。' : '「EARN」に仕分けた取引がないため、保有枚数はありません。'))]),
     ...targets.map((w, wi) => {
       // 保有枚数：分配＋報酬。Manager 分と合算には配布先の手元も入れる
       const amount = w.share + w.share * s.factor + selfWallet;
@@ -167,7 +172,7 @@ function renderRankingTab(targets) {
       // 行の内訳は英字（Wallet・Deposit・Reward。2026-10 ユーザー指示。ほかの画面は日本語のまま）
       ? (r.split ? 'Wallet ' + fmtInt(r.wallet) + '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward) : 'Wallet ' + fmtInt(r.wallet) + (r.principal > 0 ? '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward) : '')) + '（' + r.share.toFixed(2) + '%）'
       : 'Wallet ' + fmtInt(r.wallet) + '・Deposit ' + fmtInt(r.principal) + '・Reward ' + fmtInt(r.reward); // EARN Tier は上の行（アドレスと枚数の間）
-    const mine = r.split ? r.split.id : merged && r.address === selfAddr ? 'total' : ''; // 自分の行（枠全体を強調・ジャンプ先）
+    const mine = r.split ? r.split.id : merged && r.address === selfAddr ? 'total' : walletAddr && r.address === walletAddr ? 'wallet' : ''; // 自分の行（枠全体を強調・ジャンプ先）
     return el('li', { class: 'rank-row' + (mine ? ' self' : ''), ...(mine ? { 'data-split': mine } : {}) },
       el('div', { class: 'rank-line' + (rankListKind === 'holders' ? '' : ' earn') },
         el('span', { class: 'rk-no' }, String(r.no)),
@@ -175,7 +180,7 @@ function renderRankingTab(targets) {
         r.split || rankListKind !== 'holders' ? null : rankChange(rankListKind, r.address, merged ? r.no : r.otherNo, !merged),
         // アイコンはアドレスの前（保有者は魚の分類、EARN は EARN Tier）。EARN Tier の名前はアドレスの後に、先頭をそろえて（2026-10 ユーザー指示）
         rankListKind === 'holders' ? fishBadge(r.fish) : tierIcon(r.rankName),
-        r.split ? el('span', { class: 'rk-name' }, r.split.name) : el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(r.address) }, nameOf(r.address)),
+        r.split ? el('span', { class: 'rk-name' }, r.split.name) : mine === 'wallet' ? el('span', { class: 'rk-name' }, (rankSelfName || '').trim() || '自分') : el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(r.address) }, nameOf(r.address)),
         rankListKind === 'holders' ? null : el('span', { class: 'rk-tname' }, r.rankName || 'ランク外'),
         // 保有者の順位：預けている人（自分の行は EARN があるとき）だけ、枚数の前に EARN Tier のアイコン
         rankListKind === 'holders' && (r.split ? true : r.principal > 0) ? tierIcon(r.split ? (s.rankNow && s.rankNow.name) : tierOfAddr.get(r.address)) : null,
@@ -185,7 +190,26 @@ function renderRankingTab(targets) {
   fitRankLines();
   $('rankMore').hidden = list.length <= rankShown;
   $('rankMore').textContent = 'さらに表示（' + Math.min(RANK_PAGE, list.length - rankShown) + '件／残り ' + (list.length - rankShown) + '件）';
-  // 次の順位まで（2026-10 ユーザー指示）：自分より多い人のうちいちばん少ない人を抜くのに、あと何枚か
+  // 預入していない人の一番上のカード：ウォレット残高と、保有者の中の推定順位・次の順位まで
+// EARN の枠を選んでいるときは、EARN を利用していないことだけを出す
+function walletOnlyCard(holders, addr, amount, v, sym) {
+  const earn = rankListKind === 'depositors' || rankListKind === 'rankShare';
+  const row = holders.find((r) => r.address === addr);
+  const f = Fish.classify(amount, v.supply).name;
+  const head = [el('div', { class: 'sym' }, '保有枚数'),
+    el('div', { class: 'hero-row' }, coinIcons.me ? el('img', { class: 'coin-icon', src: coinIcons.me, alt: '' }) : null,
+      el('span', { class: 'hero-val' }, hid(fmtInt(amount)) + ' ' + sym), eyeButton())];
+  if (earn) return el('div', { class: 'card asset-hero rank-me' }, ...head,
+    el('div', { class: 'rank-est' }, el('div', { class: 'muted' }, 'EARN を利用していないため、EARN の順位はありません。「保有者」の枠で順位を見られます。')));
+  return el('div', { class: 'card asset-hero rank-me' }, ...head,
+    el('div', { class: 'rank-est' }, showYen ? fishBadge(f, true) : el('span', { class: 'fish big hidden-fish' }, '？'),
+      el('div', {}, el(showYen ? 'button' : 'div', { class: 'rank-est-no' + (showYen ? ' jump' : ''), type: 'button', onclick: showYen ? () => jumpToRank('wallet', 'holders') : null },
+        '推定 ', el('b', {}, hid(row.no.toLocaleString('ja-JP')) + '位'), el('span', { class: 'muted' }, '（全保有者：' + holders.length.toLocaleString('ja-JP') + '人中）')),
+        el('div', { class: 'muted' }, showYen ? f + '（' + FISH_JA[f] + '）・総供給量の ' + (amount / v.supply * 100).toFixed(3) + '%' : HIDDEN))),
+    rankProgress(holders.filter((r) => r !== row), amount, row.no, sym));
+}
+
+// 次の順位まで（2026-10 ユーザー指示）：自分より多い人のうちいちばん少ない人を抜くのに、あと何枚か
 // バーは、すぐ下の人（いなければ 0）からすぐ上の人までのどこにいるか。1位なら満タン
 function rankProgress(others, amount, est, sym) {
   const above = others.filter((r) => r.total > amount).reduce((m, r) => Math.min(m, r.total), Infinity);
