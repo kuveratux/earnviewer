@@ -429,10 +429,13 @@ function goCalcInput(id) {
 function renderCalcSettings() {
   if (document.activeElement !== $('qtyInput')) $('qtyInput').value = buyQty || '';
   if (document.activeElement !== $('costInput')) $('costInput').value = costYen || '';
-  // TEEP：チェックを入れたときだけリストを出す。リストは名前だけ（倍率は出さない）
+  // TEEP：データに TEEP の表がない人（対象外）には、欄ごと出さない（E-09、2026-10-21 ユーザー決定）
+  //   保存してある teepOn・teepName は消さない（表がなければ multOf は 100%。あとで表が入れば、選んでいたものがそのまま使われる）
   const list = teepList();
+  $('teepArea').hidden = !list.length;
+  if (!list.length) return;
+  // チェックを入れたときだけリストを出す。リストは名前だけ（倍率は出さない）
   $('teepOn').checked = teepOn;
-  $('teepOn').disabled = !list.length && !teepOn;
   $('teepBox').hidden = !teepOn;
   const names = list.map((t) => t.name).join('|');
   if ($('teepSel').dataset.names !== names) {
@@ -440,8 +443,7 @@ function renderCalcSettings() {
     $('teepSel').dataset.names = names;
   }
   $('teepSel').value = list.some((t) => t.name === teepName) ? teepName : '';
-  $('teepNote').textContent = !list.length ? 'データに TEEP の表が入っていません（データが新しくなると選べるようになります）。'
-    : teepOn && !teepPick() ? (teepName ? '選んでいた「' + teepName + '」が表にありません。選び直してください（今は 100% で計算しています）。' : 'TEEP を選んでください（選ぶまでは 100% で計算します）。')
+  $('teepNote').textContent = teepOn && !teepPick() ? (teepName ? '選んでいた「' + teepName + '」が表にありません。選び直してください（今は 100% で計算しています）。' : 'TEEP を選んでください（選ぶまでは 100% で計算します）。')
     : '';
   $('teepNote').hidden = !$('teepNote').textContent;
 }
@@ -572,7 +574,7 @@ function helpItems(kind) {
   if (kind === 'asset') return ['資産シミュレーション', [
     ['現在価格', '取得エクセルの設定シートで決めた1枚あたりの価格です。データに入っていないときは、現在価格の列が「—」になります。'],
     ['試算価格', '価格が変わったときの資産額・含み損益・報酬を見るための1枚あたりの価格（円）です。入れた値はこの端末に保存されます。', '空欄のとき：例の価格（15 円）で計算します。'],
-    ['日・週・月・年', '報酬の行を、その期間あたりの目安に切り替えます。今の EARN Tier の年利で計算します（新EARN Tier は TEEP の倍率を掛けた年利。月は1年の12分の1）。'],
+    ['日・週・月・年', '報酬の行を、その期間あたりの目安に切り替えます。今の EARN Tier の年利で計算します（' + (teepList().length ? '新EARN Tier は TEEP の倍率を掛けた年利。' : '') + '月は1年の12分の1）。'],
     ['資産額', '総枚数（ウォレット残高＋預入＋報酬）に1枚あたりの価格を掛けたものです。'],
     ['含み損益', '資産額から購入金額の合計を引いたものです。購入金額は「設定」の「計算の設定」で入れます。入れていないときは「—」になります。'],
     ...(mgr ? [['対象', '合算・Manager・Agent のどれで計算するかを選びます。']] : []),
@@ -585,7 +587,7 @@ function helpItems(kind) {
     ['年間希望報酬', '1年間に受け取りたい金額（円）です。入れると、必要な枚数を計算し、引き出しながら運用した場合の推移を出します。入れた値はこの端末に保存されます。', '空欄のとき：引き出さずに運用した場合の推移を出します。'],
     ['引出し（日・週・月・年）', '引き出すタイミングです。日は毎日、週は7日ごと、月は1か月ごと、年は1年ごとに、年間の枚数を回数で割って引き出します。'],
     ...(mgr ? [['対象', '合算・Manager・Agent のどれで計算するかを選びます（「保有枚数の表示」で2つ以上選んでいるときに出ます）。']] : []),
-    ['計算について', '今の EARN Tier の年利（新EARN Tier は「設定」で選んだ TEEP の倍率を掛けた年利）で計算した目安です。ウォレット残高は増減しないものとして足しています。引き出して枚数が減っても EARN Tier は下げずに計算します。'],
+    ['計算について', '今の EARN Tier の年利' + (teepList().length ? '（新EARN Tier は「設定」で選んだ TEEP の倍率を掛けた年利）' : '') + 'で計算した目安です。ウォレット残高は増減しないものとして足しています。引き出して枚数が減っても EARN Tier は下げずに計算します。'],
   ]];
 }
 document.addEventListener('click', (e) => {

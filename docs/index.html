@@ -215,11 +215,14 @@
       <h2>計算の設定</h2>
       <label class="field">購入枚数<span class="input-unit"><input id="qtyInput" type="number" inputmode="decimal" min="0" step="any" placeholder="未入力">枚</span></label>
       <label class="field">購入金額<span class="input-unit"><input id="costInput" type="number" inputmode="numeric" min="0" step="any" placeholder="未入力">円</span></label>
-      <label class="check teep-check"><input id="teepOn" type="checkbox"> TEEP資格</label>
-      <div id="teepBox" hidden>
-        <label class="field">TEEP<select id="teepSel"></select></label>
+      <!-- TEEP：データに TEEP の表がある人だけに出す（E-09。表がない人には欄ごと出さない） -->
+      <div id="teepArea" hidden>
+        <label class="check teep-check"><input id="teepOn" type="checkbox"> TEEP資格</label>
+        <div id="teepBox" hidden>
+          <label class="field">TEEP<select id="teepSel"></select></label>
+        </div>
+        <p id="teepNote" class="note" hidden></p>
       </div>
-      <p id="teepNote" class="note" hidden></p>
     </div>
     <div class="card">
       <h2>アドレス一覧</h2>
