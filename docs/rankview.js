@@ -146,7 +146,8 @@ function renderRankingTab(targets) {
         el('div', { class: 'rank-est' }, showYen ? fishBadge(f, true) : el('span', { class: 'fish big hidden-fish' }, '？'),
           el('div', {}, el(canJump && showYen ? 'button' : 'div', { class: 'rank-est-no' + (canJump && showYen ? ' jump' : ''), type: 'button', onclick: canJump && showYen ? () => jumpToRank(w.id, earn ? 'depositors' : 'holders') : null },
             '推定 ', el('b', {}, hid(est.toLocaleString('ja-JP')) + '位'), el('span', { class: 'muted' }, '（' + (earn ? 'EARN利用者' : '全保有者') + '：' + of.toLocaleString('ja-JP') + '人中）')),
-            el('div', { class: 'muted' }, showYen ? f + '（' + FISH_JA[f] + '）・総供給量の ' + (shownAmount / v.supply * 100).toFixed(3) + '%' : HIDDEN))));
+            el('div', { class: 'muted' }, showYen ? f + '（' + FISH_JA[f] + '）・総供給量の ' + (shownAmount / v.supply * 100).toFixed(3) + '%' : HIDDEN))),
+        rankProgress(row ? list.filter((r) => r !== row) : base, shownAmount, est, sym));
     }));
 
   // ① 保有者ランキング／② 預入ランキング／③ EARN（ランク＝レベル別の人数）／④ Tier（魚分類）の割合
@@ -184,7 +185,17 @@ function renderRankingTab(targets) {
   fitRankLines();
   $('rankMore').hidden = list.length <= rankShown;
   $('rankMore').textContent = 'さらに表示（' + Math.min(RANK_PAGE, list.length - rankShown) + '件／残り ' + (list.length - rankShown) + '件）';
-  // 推定順位を押したとき：その行まで移って、一瞬光らせる
+  // 次の順位まで（2026-10 ユーザー指示）：自分より多い人のうちいちばん少ない人を抜くのに、あと何枚か
+// バーは、すぐ下の人（いなければ 0）からすぐ上の人までのどこにいるか。1位なら満タン
+function rankProgress(others, amount, est, sym) {
+  const above = others.filter((r) => r.total > amount).reduce((m, r) => Math.min(m, r.total), Infinity);
+  if (above === Infinity) return progressBlock('次の順位', hid('1位です'), 1);
+  const below = others.filter((r) => r.total <= amount).reduce((m, r) => Math.max(m, r.total), 0);
+  return progressBlock('次の順位（' + hid((est - 1).toLocaleString('ja-JP')) + '位）まで',
+    'あと ' + hid(fmtInt(Math.floor(above - amount) + 1)) + ' ' + sym, (amount - below) / (above - below));
+}
+
+// 推定順位を押したとき：その行まで移って、一瞬光らせる
   if (rankJump) {
     const li = document.querySelector('#rankList li[data-split="' + rankJump + '"]');
     rankJump = null;

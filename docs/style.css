@@ -502,3 +502,12 @@ h2.sec-help { display: flex; align-items: center; gap: 8px; }
 .rank-line.earn .cp, .rank-line.earn .rk-name { flex: none; width: 7.4em; }  /* EARN：アドレスの幅をそろえて、EARN Tier の名前の先頭をそろえる */
 .rank-line.earn .rk-total { margin-left: auto; }
 @media (max-width: 380px) { .rank-line.earn .cp, .rank-line.earn .rk-name { width: 6.6em; } .rk-tname { width: 4.8em; font-size: 11px; } .rank-line { gap: 5px; } }
+/* 次の段階までの進み具合（保有枚数の EARN Tier・ランキングの次の順位） */
+.prog { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.prog-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.prog-need { color: var(--text); white-space: nowrap; }
+.prog-bar { margin-top: 6px; height: 8px; border-radius: 4px; background: var(--card-2); border: 1px solid var(--line); overflow: hidden; }
+.prog-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 4px; }
+.prog-head .tier-inline { display: inline-flex; align-items: center; white-space: nowrap; flex-wrap: nowrap; }
+.prog-head .tier-nb { display: inline-flex; align-items: center; gap: 3px; color: var(--text); }
+.prog-foot { margin-top: 4px; font-size: 11px; color: var(--muted); text-align: right; }
