@@ -378,7 +378,7 @@ function renderShare(d, kind) {
     else { const e = svgEl('text', { x: C, y: C - 8, class: 'donut-emoji', 'text-anchor': 'middle' }); e.textContent = pic.emoji; svg.appendChild(e); }
     const t = svgEl('text', { x: C, y: C + 26, class: 'donut-main', 'text-anchor': 'middle' }); t.textContent = pctText(s.ratio);
     svg.appendChild(t);
-  } else if (kind === 'rankShare' && s && s.key !== '__used') {
+  } else if (kind === 'rankShare' && s && sel !== '__used') {
     // EARN利用者比率で区分を選んだとき：1行目に割合、2行目に「アイコン Tier の名前 人数」（E-40、2026-10-22 ユーザー指示）
     const icon = s.key === d.NONE || s.key === 'レベル外' ? null : tierIconUrl(tierStyleKey(s.key));
     const t1 = svgEl('text', { x: C, y: C, class: 'donut-main', 'text-anchor': 'middle' }); t1.textContent = pctText(s.ratio);
