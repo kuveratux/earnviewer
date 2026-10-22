@@ -624,6 +624,23 @@ document.querySelector('[data-tab=reward]').addEventListener('click', () => setT
 //--------------------------------------------------------------
 function helpItems(kind) {
   const mgr = APP.id === 'manager';
+  if (kind === 'fish') {
+    // 魚分類：手元＋元本が総供給量の何%以上か（fish.js の min）。枚数は今のデータの総供給量から（E-40）
+    const v = rankingView(Math.floor(Date.now() / 1000));
+    const sym = data.token.symbol;
+    const amt = (p) => fmtInt(v.supply * p / 100);
+    return ['魚分類', [
+      ...Fish.CLASSES.map((c, i) => {
+        const up = i ? Fish.CLASSES[i - 1].min : null;
+        const range = up == null ? '総供給量の ' + c.min + '% 以上（' + amt(c.min) + ' ' + sym + ' 以上）'
+          : c.min > 0 ? '総供給量の ' + c.min + '% 以上 ' + up + '% 未満（' + amt(c.min) + '〜' + amt(up) + ' ' + sym + ' 未満）'
+          : '総供給量の ' + up + '% 未満（' + amt(up) + ' ' + sym + ' 未満）';
+        return [(FISH_EMOJI[c.name] || '') + ' ' + c.name, range];
+      }),
+      [comName(), '運営のアドレスです（「トークン全体」のときだけ出します）。'],
+      ['数え方', 'ウォレット残高と預入の元本を足した枚数で分けます（報酬は入れません）。総供給量は ' + fmtInt(v.supply) + ' ' + sym + '（データの取得時点）です。'],
+    ]];
+  }
   if (kind === 'asset') return ['資産シミュレーション', [
     ['現在価格', '取得エクセルの設定シートで決めた1枚あたりの価格です。データに入っていないときは、現在価格の列が「—」になります。'],
     ['試算価格', '価格が変わったときの資産額・含み損益・報酬を見るための1枚あたりの価格（円）です。入れた値はこの端末に保存されます。', '空欄のとき：例の価格（15 円）で計算します。'],
@@ -645,10 +662,12 @@ function helpItems(kind) {
 }
 document.addEventListener('click', (e) => {
   const b = e.target.closest('.help-btn');
-  if (!b) return;
-  const [title, items] = helpItems(b.dataset.help);
+  if (b && b.dataset.help) openHelp(b.dataset.help);
+});
+function openHelp(kind) {
+  const [title, items] = helpItems(kind);
   $('helpTitle').textContent = title;
   $('helpBody').replaceChildren(...items.map(([h, text, empty]) => el('div', { class: 'help-item' },
     el('div', { class: 'help-h' }, h), el('p', {}, text), empty ? el('p', { class: 'help-empty' }, empty) : null)));
   $('helpDlg').showModal();
-});
+}

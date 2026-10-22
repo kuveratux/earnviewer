@@ -12,7 +12,7 @@
 // 使う部品：deposits.js・fish.js・report.js（保有者ランキングの部品の写し。tools/sync-ranking.js で本体と同じか確かめる）
 
 const FISH_EMOJI = { Whale: '🐳', Shark: '🦈', Dolphin: '🐬', Fish: '🐟', Crab: '🦀', Shrimp: '🦐' };
-const FISH_JA = Object.fromEntries(Fish.CLASSES.map((c) => [c.name, c.ja]));
+// 魚の日本語名（クジラ・サメなど）は画面に出さない（E-40、2026-10-22 ユーザー指示）。fish.js の ja は部品なので残す
 const RANK_PAGE = 100; // 一度に出す件数（「さらに表示」で増やす）
 let rankListKind = 'holders'; // 起動時は保有者の順位（端末に保存しない）
 let rankShown = RANK_PAGE;
@@ -75,7 +75,7 @@ function tierIconUrl(key) {
 // アイコンだけ（報酬タブの預入期間・資産シミュレーション・EARN 割合の表で使う）
 const tierIcon = (name) => el('img', { class: 'tier-icon', src: tierIconUrl(tierStyleKey(name)), alt: '', width: '16', height: '16' });
 
-const fishBadge = (name, big) => el('span', { class: 'fish' + (big ? ' big' : ''), title: name + '（' + (FISH_JA[name] || '') + '）' }, FISH_EMOJI[name] || '');
+const fishBadge = (name, big) => el('span', { class: 'fish' + (big ? ' big' : ''), title: name }, FISH_EMOJI[name] || '');
 
 // 分配後の持ち分（Manager 分・Agent 分）。Agent アプリは Manager 分を一覧に出さないが、人数・順位には数える
 // EARN VIEWER：分割しないので、EARN の枚数をそのまま1行（自分）にする。名前は「自分」（設定の「ランキングでの表示名」で変えられる）
@@ -154,7 +154,7 @@ function renderRankingTab(targets) {
         el('div', { class: 'rank-est' }, showYen ? fishBadge(f, true) : el('span', { class: 'fish big hidden-fish' }, '？'),
           el('div', {}, el(canJump && showYen ? 'button' : 'div', { class: 'rank-est-no' + (canJump && showYen ? ' jump' : ''), type: 'button', onclick: canJump && showYen ? () => jumpToRank(w.id, earn ? 'depositors' : 'holders') : null },
             '推定 ', el('b', {}, hid(est.toLocaleString('ja-JP')) + '位'), el('span', { class: 'muted' }, '（' + (earn ? 'EARN利用者' : '全保有者') + '：' + of.toLocaleString('ja-JP') + '人中）')),
-            el('div', { class: 'muted' }, showYen ? f + '（' + FISH_JA[f] + '）・総供給量の ' + (shownAmount / v.supply * 100).toFixed(3) + '%' : HIDDEN))),
+            el('div', { class: 'muted' }, showYen ? f + '・総供給量の ' + (shownAmount / v.supply * 100).toFixed(3) + '%' : HIDDEN))),
         rankProgress(row ? list.filter((r) => r !== row) : base, shownAmount, est, sym));
     }));
 
@@ -212,7 +212,7 @@ function walletOnlyCard(holders, addr, amount, v, sym) {
     el('div', { class: 'rank-est' }, showYen ? fishBadge(f, true) : el('span', { class: 'fish big hidden-fish' }, '？'),
       el('div', {}, el(showYen ? 'button' : 'div', { class: 'rank-est-no' + (showYen ? ' jump' : ''), type: 'button', onclick: showYen ? () => jumpToRank('wallet', 'holders') : null },
         '推定 ', el('b', {}, hid(row.no.toLocaleString('ja-JP')) + '位'), el('span', { class: 'muted' }, '（全保有者：' + holders.length.toLocaleString('ja-JP') + '人中）')),
-        el('div', { class: 'muted' }, showYen ? f + '（' + FISH_JA[f] + '）・総供給量の ' + (amount / v.supply * 100).toFixed(3) + '%' : HIDDEN))),
+        el('div', { class: 'muted' }, showYen ? f + '・総供給量の ' + (amount / v.supply * 100).toFixed(3) + '%' : HIDDEN))),
     rankProgress(holders.filter((r) => r !== row), amount, row.no, sym));
 }
 
@@ -317,17 +317,20 @@ function fishShareOf(holders, v) {
   const total = rows.reduce((t, r) => t + r.amount, 0);
   const colors = rampFor(Fish.CLASSES.length).reverse(); // Whale が明るい
   return {
-    unit: data.token.symbol, total, center: rows.reduce((t, r) => t + r.count, 0).toLocaleString('ja-JP') + '件', centerSub: fishScope === 'all' ? '保有者（運営を含む）' : '保有者（運営を除く）',
+    // 真ん中：件数・枚数（億）・範囲（E-40）
+    unit: data.token.symbol, total, center: rows.reduce((t, r) => t + r.count, 0).toLocaleString('ja-JP') + '件', centerAmount: fmtOku(total) + ' ' + data.token.symbol, centerSub: fishScope === 'all' ? '運営を含む' : '運営を除く',
     rows: rows.map((r) => {
       const ci = Fish.CLASSES.findIndex((c) => c.name === r.name);
       const com = ci < 0;
-      const text = com ? comName() : r.name + '（' + Fish.CLASSES[ci].ja + '）';
+      const text = com ? comName() : r.name;
       return { key: r.name, text, label: (FISH_EMOJI[r.name] ? FISH_EMOJI[r.name] + ' ' : '') + text, image: com ? communityStyle.image : '', color: com ? comColor() : colors[ci], count: r.count, value: r.amount, ratio: total ? r.amount / total : 0 };
     }),
   };
 }
 
 const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+// 枚数を億で（小数第1位まで、切り捨て。E-40、2026-10-22 ユーザー指示）
+const fmtOku = (v) => (Math.floor(v / 1e8 * 10) / 10).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '億';
 const pctText = (r) => (r * 100 >= 10 ? (r * 100).toFixed(1) : (r * 100).toFixed(2)) + '%';
 
 function renderShare(d, kind) {
@@ -375,6 +378,23 @@ function renderShare(d, kind) {
     else { const e = svgEl('text', { x: C, y: C - 8, class: 'donut-emoji', 'text-anchor': 'middle' }); e.textContent = pic.emoji; svg.appendChild(e); }
     const t = svgEl('text', { x: C, y: C + 26, class: 'donut-main', 'text-anchor': 'middle' }); t.textContent = pctText(s.ratio);
     svg.appendChild(t);
+  } else if (kind === 'rankShare' && s && s.key !== '__used') {
+    // EARN利用者比率で区分を選んだとき：1行目に割合、2行目に「アイコン Tier の名前 人数」（E-40、2026-10-22 ユーザー指示）
+    const icon = s.key === d.NONE || s.key === 'レベル外' ? null : tierIconUrl(tierStyleKey(s.key));
+    const t1 = svgEl('text', { x: C, y: C, class: 'donut-main', 'text-anchor': 'middle' }); t1.textContent = pctText(s.ratio);
+    const line = s.label + ' ' + s.count.toLocaleString('ja-JP') + '人';
+    // 2行目はアイコンと文字を合わせて真ん中に（文字の幅は目安：半角 6.6px・全角 12px）
+    const w = [...line].reduce((a, ch) => a + (ch.charCodeAt(0) < 256 ? 6.6 : 12), 0) + (icon ? 20 : 0);
+    const x0 = C - w / 2;
+    if (icon) svg.appendChild(svgEl('image', { href: icon, x: x0, y: C + 10, width: 16, height: 16 }));
+    const t2 = svgEl('text', { x: x0 + (icon ? 20 : 0), y: C + 23, class: 'donut-name', 'text-anchor': 'start' }); t2.textContent = line;
+    svg.append(t1, t2);
+  } else if (kind === 'fishShare' && !s) {
+    // トークン配分内訳の真ん中：件数・枚数（億）・範囲（E-40）
+    const t1 = svgEl('text', { x: C, y: C - 10, class: 'donut-main', 'text-anchor': 'middle' }); t1.textContent = d.center;
+    const t2 = svgEl('text', { x: C, y: C + 12, class: 'donut-amt', 'text-anchor': 'middle' }); t2.textContent = d.centerAmount;
+    const t3 = svgEl('text', { x: C, y: C + 30, class: 'donut-sub', 'text-anchor': 'middle' }); t3.textContent = d.centerSub;
+    svg.append(t1, t2, t3);
   } else {
     const t1 = svgEl('text', { x: C, y: C - 4, class: 'donut-main', 'text-anchor': 'middle' }); t1.textContent = s ? pctText(s.ratio) : d.center;
     const t2 = svgEl('text', { x: C, y: C + 18, class: 'donut-sub', 'text-anchor': 'middle' }); t2.textContent = s ? (s.text || s.label) : d.centerSub;
@@ -406,7 +426,10 @@ function renderShare(d, kind) {
       return b;
     }));
   const note = kind !== 'fishShare' ? null : el('p', { class: 'muted share-note' }, fishScope === 'all' ? '運営を含むトークン全体に対する割合です。' : '運営を除いた、保有者の合計に対する割合です。');
-  $('rankShareBox').replaceChildren(el('h2', {}, kind === 'rankShare' ? 'EARN利用者比率' : 'トークン配分内訳'), scopeSeg, note, el('div', { class: 'donut-wrap' }, svg), el('div', { class: 'scroll' }, table));
+  // EARN利用者比率では scopeSeg・note が null（そのまま渡すと「nullnull」と出るので外す。E-40）
+  // トークン配分内訳の表の右上に丸付きの ?（押すと魚分類の説明。E-40、2026-10-22 ユーザー指示）
+  const help = kind !== 'fishShare' ? null : el('div', { class: 'share-help' }, el('button', { type: 'button', class: 'help-btn', 'data-help': 'fish', 'aria-label': '魚分類の説明' }, '?'));
+  $('rankShareBox').replaceChildren(...[el('h2', {}, kind === 'rankShare' ? 'EARN利用者比率' : 'トークン配分内訳'), scopeSeg, note, el('div', { class: 'donut-wrap' }, svg), help, el('div', { class: 'scroll' }, table)].filter(Boolean));
 }
 
 // ---- Community（運営）の表示：名前・色・画像はデータで配られる（views.js の communityStyle。取得エクセルの設定シートで決める）
