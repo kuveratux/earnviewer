@@ -331,6 +331,8 @@ function fishShareOf(holders, v) {
 const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 // 枚数を億で（小数第1位まで、切り捨て。E-40、2026-10-22 ユーザー指示）
 const fmtOku = (v) => (Math.floor(v / 1e8 * 10) / 10).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '億';
+// 枚数を万・億で短く（1億以上は億、1万以上は万、小数第1位まで切り捨て。1万未満はそのまま。E-46）
+const fmtJaUnit = (v) => (v >= 1e8 ? fmtOku(v) : v >= 1e4 ? (Math.floor(v / 1e4 * 10) / 10).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '万' : fmtInt(v));
 const pctText = (r) => (r * 100 >= 10 ? (r * 100).toFixed(1) : (r * 100).toFixed(2)) + '%';
 
 function renderShare(d, kind) {
@@ -374,10 +376,12 @@ function renderShare(d, kind) {
   // トークン配分内訳で区分を選んだときは、真ん中に区分の画像（Tier は絵文字、運営は設定した画像）と割合（2026-10 ユーザー指示）
   const pic = kind === 'fishShare' && s ? (s.image ? { img: s.image } : FISH_EMOJI[s.key] ? { emoji: FISH_EMOJI[s.key] } : null) : null;
   if (pic) {
-    if (pic.img) svg.appendChild(svgEl('image', { href: pic.img, x: C - 22, y: C - 44, width: 44, height: 44, preserveAspectRatio: 'xMidYMid meet' }));
-    else { const e = svgEl('text', { x: C, y: C - 8, class: 'donut-emoji', 'text-anchor': 'middle' }); e.textContent = pic.emoji; svg.appendChild(e); }
-    const t = svgEl('text', { x: C, y: C + 26, class: 'donut-main', 'text-anchor': 'middle' }); t.textContent = pctText(s.ratio);
-    svg.appendChild(t);
+    // 画像、割合、その下に枚数と件数（E-46、2026-10-23 ユーザー指示）
+    if (pic.img) svg.appendChild(svgEl('image', { href: pic.img, x: C - 17, y: C - 50, width: 34, height: 34, preserveAspectRatio: 'xMidYMid meet' }));
+    else { const e = svgEl('text', { x: C, y: C - 22, class: 'donut-emoji donut-emoji-s', 'text-anchor': 'middle' }); e.textContent = pic.emoji; svg.appendChild(e); }
+    const t = svgEl('text', { x: C, y: C + 10, class: 'donut-main', 'text-anchor': 'middle' }); t.textContent = pctText(s.ratio);
+    const t2 = svgEl('text', { x: C, y: C + 30, class: 'donut-name', 'text-anchor': 'middle' }); t2.textContent = fmtJaUnit(s.value) + ' ' + data.token.symbol + ' ' + s.count.toLocaleString('ja-JP') + '件';
+    svg.append(t, t2);
   } else if (kind === 'rankShare' && s && sel !== '__used') {
     // EARN利用者比率で区分を選んだとき：1行目に割合、2行目に「アイコン Tier の名前 人数」（E-40、2026-10-22 ユーザー指示）
     const icon = s.key === d.NONE || s.key === 'レベル外' ? null : tierIconUrl(tierStyleKey(s.key));
