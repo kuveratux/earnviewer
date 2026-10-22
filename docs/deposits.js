@@ -8,11 +8,14 @@
 //     元本ちょうどの返却も精算済み。返却のあと預け直したら新しい預け入れ
 //     預け入れのない人への返却は「対応のない返却」として別に数える
 // ・除外アドレス（運営の資金移動など）とのやり取りは、預け入れ・返却として数えない
-// ・報酬：EarnSplitViewer の shared/reward.js と同じルール（この部品だけで動くよう、同じ計算をここに書く）
+// ・報酬：EARN VIEWER 1.0.8 の shared/reward.js（settled）と同じルール（この部品だけで動くよう、同じ計算をここに書く）
 //     日数：入金の日時から24時間後を1日目とし、now までに経過した24時間の回数。入金ごとに数える
-//     年利：k 日目の時点（入金日時＋k×24時間）が新ランク表の開始日（日本時間 0:00）より前なら旧ランク表、以降なら新ランク表
-//     ランク：その人の預け入れ合計（元本）が、ランク表の「下限」以上かで決める（最下位の下限未満は「ランク外」で年利 0）
-//     報酬：入金の枚数 × 年利 ÷ 365 × 日数（単利）。旧・新の日数ごとに足す
+//     年利：k 日目の時点 m（入金日時＋k×24時間）が新ランク表の開始日（日本時間 0:00）より前なら旧ランク表、以降なら新ランク表
+//     ランク（Tier）：**その時点 m までに入った、精算されていない入金の合計**が、ランク表の「下限」以上かで決める
+//       （2026-10-22 E-38 ユーザー決定。例：7/1 に 500、9/15 に 600 なら 7/1〜9/14 は 500 枚、9/15 からは 1,100 枚の Tier。
+//        報酬は合計に入れない。返却で精算したら合計は 0 から数え直す。最下位の下限未満は「ランク外」で年利 0）
+//     報酬：入金の枚数 × その日の年利 ÷ 365 を1日ずつ足す（単利）。入金が1件なら 旧・新の日数 × 年利 でまとめて計算（結果は同じ）
+//     今のランク（表示用の rankName・rate）は今の合計で決める（今日の時点ではすべての入金が入っているので、その日までの合計＝今の合計）
 // ・預け先の残高との差：預けた人の元本の合計 − 預け先の実際の残高（元本だけで比べる。未払いの報酬は入れない）
 //     差 ＝ 除外への出金 − 除外からの入金 ＋ 返却で上乗せされた報酬 ＋ 対応のない返却 − 精算で戻らなかった元本
 //     （最後の項は、元本より少なく返却されたときの不足分）
@@ -42,6 +45,31 @@ const Deposits = (() => {
     const newStart = jstMidnight(rk.new.startDate);
     const oldDays = Math.min(days, Math.max(0, Math.ceil((newStart - t) / DAY) - 1));
     return { days, oldDays, newDays: days - oldDays };
+  }
+
+  // 精算されていない入金 [{ t, amount（枚数） }]（古い順）の報酬の確定分。EARN VIEWER 1.0.8 の reward.js（settled）と同じ計算
+  //   1件：今の合計で旧・新のランクを決め、旧・新の日数 × 年利（1件なら今の合計＝その日までの合計なので同じ結果）
+  //   複数：入金ごとに k 日目の時点 m で、m までに入った入金の合計でランクを決め、m で旧・新のランク表を選んで1日分ずつ足す
+  function rewardOf(list, rk, now, newStart = jstMidnight(rk.new.startDate)) {
+    if (!list.length) return 0;
+    if (list.length === 1) {
+      const e = list[0];
+      const n = daysOf(e.t, rk, now);
+      const rOld = rankFor(rk.old.ranks, e.amount);
+      const rNew = rankFor(rk.new.ranks, e.amount);
+      return e.amount * ((rOld ? rOld.rate : 0) * n.oldDays + (rNew ? rNew.rate : 0) * n.newDays) / 365;
+    }
+    let reward = 0;
+    for (const e of list) {
+      const n = Math.max(0, Math.floor((now - e.t) / DAY));
+      for (let k = 1; k <= n; k++) {
+        const m = e.t + k * DAY;
+        const sum = list.reduce((a, x) => (x.t <= m ? a + x.amount : a), 0);
+        const r = rankFor(m < newStart ? rk.old.ranks : rk.new.ranks, sum);
+        reward += e.amount * (r ? r.rate : 0) / 365;
+      }
+    }
+    return reward;
   }
 
   // events：預け先とのやり取り [{ t（UNIX 秒）, from, to, value（BigInt） }]。古い順（同じブロックはログの順）に並べて渡す
@@ -93,15 +121,7 @@ const Deposits = (() => {
       const principal = p.open.reduce((x, d) => x + d.value, 0n);
       principalSum += principal;
       const total = toTokens(principal, dec);
-      const rankOld = rankFor(opts.ranks.old.ranks, total);
-      const rankNew = rankFor(opts.ranks.new.ranks, total);
-      const rateOld = rankOld ? rankOld.rate : 0;
-      const rateNew = rankNew ? rankNew.rate : 0;
-      let reward = 0;
-      for (const d of p.open) {
-        const n = daysOf(d.t, opts.ranks, now);
-        reward += toTokens(d.value, dec) * (rateOld * n.oldDays + rateNew * n.newDays) / 365;
-      }
+      const reward = rewardOf(p.open.map((d) => ({ t: d.t, amount: toTokens(d.value, dec) })), opts.ranks, now, newStart);
       const rankNow = p.open.length ? rankFor(tableNext(p.open[0].t), total) : null;
       list.push({
         address,
@@ -155,7 +175,7 @@ const Deposits = (() => {
     return list;
   }
 
-  return { DAY, ZERO, toTokens, rankFor, daysOf, compute, combine };
+  return { DAY, ZERO, toTokens, rankFor, daysOf, rewardOf, compute, combine };
 })();
 
 if (typeof module !== 'undefined') module.exports = Deposits;
