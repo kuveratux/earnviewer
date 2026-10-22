@@ -12,11 +12,56 @@ let nameOf = (addr) => short(addr);
 
 const clsTag = (cls) => el('span', { class: 'tag cls-' + cls }, CLS_LABEL[cls] || cls);
 
+// 仕分けの変更（E-35）：利用者がこの端末で変えた取引の区分。データ・サーバーには返さない
+// clsEdits：{ 配布先アドレス: { 'ハッシュ:log': 区分 } }。新しいデータを読み込んでも、同じ取引（ハッシュ＋log）なら残す
+let clsEdits = {};
+const CLS_BY_DIR = { out: ['split', 'deposit', 'send'], in: ['receive', 'income'] }; // 向きで選べる区分
+const txKey = (x) => x.tx + ':' + x.log;
+const editAddr = () => ((data && data.holder && data.holder.address) || '').toLowerCase();
+// 変更を当てた取引の一覧。変えた取引には orig（データのままの区分）を付ける
+function txRows() {
+  const ed = clsEdits[editAddr()] || {};
+  return data.transfers.map((x) => {
+    const c = ed[txKey(x)];
+    return c && c !== x.cls && (CLS_BY_DIR[x.dir] || []).includes(c) ? { ...x, cls: c, orig: x.cls } : x;
+  });
+}
+// 「EARN」の取引（複数あってよい。報酬は EARN ごとに数え、ランクは合計で決める）
+const earnList = () => txRows().filter((x) => x.cls === 'split');
+const earnTotal = (earns) => earns.reduce((a, x) => a + Number(x.amount), 0);
+const editCount = () => txRows().filter((x) => x.orig).length;
+async function setClsEdit(x, cls) {
+  const a = editAddr();
+  const ed = { ...(clsEdits[a] || {}) };
+  if (!cls || cls === x.cls) delete ed[txKey(x)]; else ed[txKey(x)] = cls; // 元と同じなら覚えない
+  clsEdits = { ...clsEdits, [a]: ed };
+  if (!Object.keys(ed).length) delete clsEdits[a];
+  await putSetting('clsEdits', clsEdits);
+  refreshAll();
+}
+async function clearClsEdits() {
+  const { [editAddr()]: _, ...rest } = clsEdits;
+  clsEdits = rest;
+  await putSetting('clsEdits', clsEdits);
+  refreshAll();
+}
+// 区分を選ぶ小さな画面（取引一覧の区分のタグを押すと開く）
+function openClsDialog(x) {
+  const orig = x.orig || x.cls;
+  const dlg = $('clsDlg');
+  $('clsDlgInfo').textContent = fmtDate(x.t) + '　' + (x.dir === 'in' ? '+' : '−') + fmtDec1(x.amount) + ' ' + data.token.symbol;
+  $('clsDlgList').replaceChildren(...(CLS_BY_DIR[x.dir] || []).map((c) => el('label', { class: 'check cls-opt' },
+    el('input', { type: 'radio', name: 'clsPick', value: c, ...(c === x.cls ? { checked: '' } : {}) }), clsTag(c), c === orig ? el('span', { class: 'muted' }, '（元の仕分け）') : null)));
+  $('clsDlgReset').hidden = !x.orig;
+  dlg.dataset.key = txKey(x);
+  dlg.showModal();
+}
+
 // 取引タブを描く
 // 取引タブは2つの折りたたみ：配布先の取引（タイトルはランキングでの表示名）と、コントラクト全体の直近取引（2026-10）
 // opts：{ clsList（表示する区分）, amountOf（行 → 表示する枚数）, mineName（配布先の取引のタイトルに使う名前）, explorer }
 function renderTxTab(opts) {
-  const rows = data.transfers;
+  const rows = txRows();
   const sym = data.token.symbol;
   $('mineTitle').textContent = opts.mineName + 'の取引';
 
@@ -44,7 +89,9 @@ function renderTxTab(opts) {
       el('a', { class: 'tx-link', href: opts.explorer + '/tx/' + x.tx, target: '_blank', rel: 'noopener noreferrer' }, 'エクスプローラーで見る');
     return el('li', {},
       el('div', { class: 'tx-top' },
-        el('span', { class: 'tx-date' }, fmtDate(x.t), clsTag(x.cls)),
+        el('span', { class: 'tx-date' }, fmtDate(x.t),
+          el('button', { type: 'button', class: 'cls-btn', 'aria-label': '仕分けを変える', onclick: () => openClsDialog(x) }, clsTag(x.cls)),
+          x.orig ? el('span', { class: 'cls-chg' }, '変更（元：' + CLS_LABEL[x.orig] + '）') : null),
         el('span', { class: 'tx-amt ' + x.dir }, (x.dir === 'in' ? '+' : '−') + hid(fmtDec1(opts.amountOf(x))) + ' ' + sym)),
       el('button', { class: 'cp', type: 'button', onclick: () => openNameDialog(x.counterparty) },
         el('span', { class: 'cp-label' }, x.dir === 'in' ? '受取元：' : '送付先：'), nameOf(x.counterparty)),
@@ -112,8 +159,8 @@ function progressBlock(left, right, ratio, foot) {
 
 // 今の EARN Tier と次のランクまで：ランクは預入枚数（合計）で決まるので、あと何枚預ければ上がるか（報酬は含めない）
 // 表は次の1日に使うもの（rankNow と同じ。新EARN Tier の開始日の前後で旧・新を切り替える）
-function tierProgress(split, rk, s, sym) {
-  const table = split.t + (s.days + 1) * Reward.DAY < Date.parse(rk.new.startDate + 'T00:00:00+09:00') / 1000 ? rk.old.ranks : rk.new.ranks;
+function tierProgress(s, sym) {
+  const table = s.tableNow;
   const cur = s.rankNow;
   const next = table.find((r) => r.min > s.total);
   const name = el('span', { class: 'tier-nb' }, showYen ? tierIcon(cur && cur.name) : null, hid(cur ? cur.name : 'ランク外'));
@@ -134,7 +181,8 @@ let rewardWho = '';
 const labelOf_ = (w) => (w.id === 'total' ? '合算' : w.name);
 function renderRewardTab(who, showTotal = true, opts = {}) {
   const sym = data.token.symbol;
-  const split = data.transfers.find((x) => x.cls === 'split');
+  const earns = earnList();
+  const split = earns.length ? earns : null;
   const ok = split && ranks.old && ranks.new;
   $('rewardNote').hidden = !!ok;
   $('rewardNote').textContent = !split ? '「EARN」に仕分けた取引がないため、報酬は計算していません。'
@@ -155,6 +203,10 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
   // 保有枚数（預入＋報酬）のカード。数字は資産タブの資産額と同じ大きさ。内訳は折りたたみ（起動時は開く）
   const multi = APP.id === 'manager'; // Manager は対象名を添える
   const rewardList = opts.rewardWho || who;
+  // 仕分けを変えた取引があるときは、計算に入れていることを小さく出す（E-35）
+  const nEdit = editCount();
+  $('clsEditNote').hidden = !nEdit;
+  $('clsEditNote').textContent = nEdit ? '取引履歴で仕分けを変えた取引（' + nEdit + ' 件）を、計算に入れています。' : '';
   $('rewardCards').replaceChildren(...(rewardList.length ? [] : [el('div', { class: 'card' }, el('p', { class: 'muted' }, '表示する対象がありません。「設定」の「保有枚数の表示」で選んでください。'))]), ...rewardList.map((w, wi) => {
     const reward = w.share * s.factor;
     const rows = [
@@ -162,11 +214,12 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
       ['預入枚数', hid(fmtInt(w.share)) + ' ' + sym + (showYen && showTotal && w.share !== s.total ? '（' + pct(w.share / s.total) + '）' : '')],
       // 報酬枚数：1行目に枚数、2行目に1日あたり
       ['報酬枚数', el('span', {}, hid(fmtInt(reward)) + ' ' + sym, el('br'), el('span', { class: 'per-day' }, hid(fmtDec2(w.share * s.rateNow / 365)) + ' ' + sym + '/日'))],
-      ['預入日時', fmtDate(split.t)],
+      // EARN が複数のときは1件ずつ（日時と枚数）
+      ['預入日時', s.count > 1 ? el('span', {}, ...s.earns.flatMap((e, i) => [i ? el('br') : null, fmtDate(e.t) + '（' + hid(fmtInt(e.amount)) + '）'])) : fmtDate(split[0].t)],
       // 預入期間：「EARN Tier：Gold(9.75%) 30日」の形。ランクと年利は今のもの（新EARN Tier の期間は、預入枚数のランクの年利 × TEEP の倍率で出した結果）
       // 旧・新の日数の内訳は出さない（2026-10 ユーザー指示）
       ['預入期間', el('span', { class: 'tier-inline' }, 'EARN Tier：', el('span', { class: 'tier-nb' }, showYen ? tierIcon(s.rankNow && s.rankNow.name) : null,
-        hid(s.rankNow ? s.rankNow.name + '(' + pct(s.rateNow) + ')' : 'ランク外(0%)')), ' ' + s.days + '日')],
+        hid(s.rankNow ? s.rankNow.name + '(' + pct(s.rateNow) + ')' : 'ランク外(0%)')), ' ' + s.days + '日' + (s.count > 1 ? '（最初の EARN から）' : ''))],
     ];
     const key = 'reward-' + w.id;
     const d = el('details', { class: 'fold' },
@@ -178,7 +231,7 @@ function renderRewardTab(who, showTotal = true, opts = {}) {
       el('div', { class: 'sym' }, multi ? '保有枚数（' + labelOf_(w) + '）' : '保有枚数'),
       el('div', { class: 'hero-row' }, coinIcons[w.id] ? el('img', { class: 'coin-icon', src: coinIcons[w.id], alt: '' }) : null,
         el('span', { class: 'hero-val' }, hid(fmtInt(wallet + w.share + reward)) + ' ' + sym), wi === 0 ? eyeButton() : null),
-      tierProgress(split, rk, s, sym),
+      tierProgress(s, sym),
       el('div', { class: 'hero-folds' }, d));
   }));
 

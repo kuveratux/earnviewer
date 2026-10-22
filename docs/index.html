@@ -113,6 +113,7 @@
     <div class="whenData" hidden>
       <div id="rewardNote" class="note" hidden></div>
       <div id="rewardBody">
+        <p id="clsEditNote" class="muted cls-edit-note" hidden></p>
         <div id="rewardCards"></div>
         <h2 class="sec sec-help">運用シミュレーション<button type="button" class="help-btn" data-help="reward" aria-label="運用シミュレーションのヘルプ">?</button></h2>
         <div class="chart-controls">
@@ -224,6 +225,12 @@
         <p id="teepNote" class="note" hidden></p>
       </div>
     </div>
+    <!-- 仕分けの変更（E-35）：取引履歴で変えた取引があるときだけ出す -->
+    <div id="clsEditCard" class="card" hidden>
+      <h2>仕分けの変更</h2>
+      <p class="muted">取引履歴で仕分けを変えた取引：<b id="clsEditCount"></b>（この端末だけに保存。報酬・ランキングの計算にも入れています）</p>
+      <div class="row"><button id="clsResetAllBtn" type="button">すべて元に戻す</button></div>
+    </div>
     <div class="card">
       <h2>アドレス一覧</h2>
       <p class="muted">取引に出てきたアドレスの一覧です。名前を付けると、取引一覧の相手先にも表示されます（この端末だけに保存）。</p>
@@ -318,6 +325,21 @@
     <label class="field">名前（空欄にすると削除） <input id="dlgName" autocomplete="off" maxlength="40"></label>
     <div class="row">
       <button value="save" class="primary">保存</button>
+      <button value="cancel" formnovalidate>やめる</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 仕分けを選ぶ（E-35。取引履歴の区分のタグを押すと開く） -->
+<dialog id="clsDlg">
+  <form method="dialog">
+    <h2>仕分けを変える</h2>
+    <p id="clsDlgInfo" class="muted"></p>
+    <div id="clsDlgList" class="cls-list"></div>
+    <p class="muted">この端末だけに保存します。報酬・ランキングの計算にも入れます。</p>
+    <div class="row">
+      <button value="save" class="primary">保存</button>
+      <button id="clsDlgReset" value="reset" formnovalidate>元に戻す</button>
       <button value="cancel" formnovalidate>やめる</button>
     </div>
   </form>

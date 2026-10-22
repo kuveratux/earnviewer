@@ -2,11 +2,12 @@
 
 // 報酬の計算（Manager・Agent 共通。ブラウザと Node の両方で使える）
 //
-// ・元の枚数：「分配」に仕分けた取引の枚数（分配は常に1件）
-// ・日数：分配の日時から24時間後を1日目とし、アプリを開いた時点までに経過した24時間の回数
-// ・年利：k 日目の時点（分配日時＋k×24時間）が新ランク表の開始日（日本時間 0:00）より前なら旧ランク表、以降なら新ランク表
-// ・ランク：分ける前の合計枚数が、ランク表の「下限」以上かで決める（最下位の下限未満は「ランク外」で年利 0）
-// ・報酬（確定分）：取り分 × 年利 ÷ 365 × 日数（単利）。旧・新の日数ごとに足す
+// ・元の枚数：「EARN」に仕分けた取引の枚数。EARN は複数あってよい（E-35、2026-10-22 ユーザー決定）
+// ・日数：EARN ごとに、その日時から24時間後を1日目とし、アプリを開いた時点までに経過した24時間の回数
+// ・年利：k 日目の時点（EARN の日時＋k×24時間）が新ランク表の開始日（日本時間 0:00）より前なら旧ランク表、以降なら新ランク表
+// ・ランク：その時点までに預けた EARN の枚数の合計（報酬は含めない）が、ランク表の「下限」以上かで決める（最下位の下限未満は「ランク外」で年利 0）
+// ・報酬（確定分）：EARN ごとに 枚数 × その日の年利 ÷ 365 を1日ずつ足す（単利）
+// ・日数・今のランクの表は、いちばん古い EARN で数える（EARN が1件なら以前と同じ）
 // ・見込み（グラフ）：今日の確定分から先を、1日ごとに足していく
 //     単利：毎日 取り分 × 年利 ÷ 365 を足す（ランクは合計枚数で決めたまま）
 //     複利：毎日 その時点の枚数 × 年利 ÷ 365 を足す。枚数が増えてランクが上がったら年利も上げる
@@ -26,9 +27,15 @@ const Reward = (() => {
   // k 日目に使うランク表
   const tableOn = (split, rk, k) => (split.t + k * DAY < jstMidnight(rk.new.startDate) ? rk.old.ranks : rk.new.ranks);
 
-  // 確定分。split：{ t, amount（合計） }、rk：{ old: { ranks }, new: { ranks, startDate } }、now：UNIX 秒
-  function settled(split, rk, now) {
-    const total = Number(split.amount);
+  // EARN の一覧（1件の { t, amount } でも配列でもよい）を古い順に
+  const listOf = (earns) => (Array.isArray(earns) ? earns : [earns]).map((x) => ({ t: x.t, amount: Number(x.amount) })).sort((a, b) => a.t - b.t);
+
+  // 確定分。earns：EARN の取引 [{ t, amount }]（1件なら { t, amount } でもよい）、rk：{ old: { ranks }, new: { ranks, startDate } }、now：UNIX 秒
+  // factor は「元の1枚あたりの報酬」（報酬の合計 ÷ EARN の合計）。呼ぶ側は 枚数 × factor で報酬を出す
+  function settled(earns, rk, now) {
+    const list = listOf(earns);
+    const split = list[0];
+    const total = list.reduce((a, x) => a + x.amount, 0);
     const days = Math.max(0, Math.floor((now - split.t) / DAY));
     const newStart = jstMidnight(rk.new.startDate);
     const oldDays = Math.min(days, Math.max(0, Math.ceil((newStart - split.t) / DAY) - 1));
@@ -37,11 +44,26 @@ const Reward = (() => {
     const rankNew = rankFor(rk.new.ranks, total);
     const rateOld = rankOld ? rankOld.rate : 0;
     const rateNew = rankNew ? rankNew.rate : 0;
-    const factor = (rateOld * oldDays + rateNew * newDays) / 365; // 元の1枚あたりの報酬
+    // 1件なら旧・新の日数でまとめて、複数なら EARN ごとに1日ずつ（その時点までの EARN の合計でランクを決める）
+    let reward = total * (rateOld * oldDays + rateNew * newDays) / 365;
+    if (list.length > 1) {
+      reward = 0;
+      for (const e of list) {
+        const n = Math.max(0, Math.floor((now - e.t) / DAY));
+        for (let k = 1; k <= n; k++) {
+          const m = e.t + k * DAY;
+          const sum = list.reduce((a, x) => (x.t <= m ? a + x.amount : a), 0);
+          const r = rankFor(m < newStart ? rk.old.ranks : rk.new.ranks, sum);
+          reward += e.amount * (r ? r.rate : 0) / 365;
+        }
+      }
+    }
+    const factor = total > 0 ? reward / total : 0; // 元の1枚あたりの報酬
     // 今の年利：次の1日（days＋1 日目）に使うランク表で、合計枚数から決めたランクの年利（1日・週・月・年の報酬の目安に使う）
-    const rankNow = rankFor(tableOn(split, rk, days + 1), total);
+    const tableNow = tableOn(split, rk, days + 1);
+    const rankNow = rankFor(tableNow, total);
     const rateNow = rankNow ? rankNow.rate : 0;
-    return { total, days, oldDays, newDays, rankOld, rankNew, rateOld, rateNew, rankNow, rateNow, factor, firstDay: split.t + DAY };
+    return { total, days, oldDays, newDays, rankOld, rankNew, rateOld, rateNew, rankNow, rateNow, tableNow, factor, reward, count: list.length, earns: list, firstDay: split.t + DAY };
   }
 
   // 日本時間の年月日を n か月ずらした日の 0:00（月末は丸める）
@@ -59,8 +81,10 @@ const Reward = (() => {
   // freq：引出しのタイミング。'day'＝毎日 1/365、'week'＝7日ごと 1/52、'month'＝月に1回 1/12（既定）、'year'＝1年ごとに全部（今日は引かない）
   //   単利：取り崩した分だけ、報酬の元（p）も減る。複利：その時点の枚数に年利をかけるので、引いた分だけ報酬も減る
   //   年利：取り崩しで枚数が減っても下げない（年利は別管理。ユーザー決定）。複利で増えてランクが上がったときは上げる
-  function project(split, rk, now, mode, months = 36, withdraw = 0, freq = 'month') {
-    const s = settled(split, rk, now);
+  // earns は settled と同じ。日数の数え方はいちばん古い EARN から（先の日はすべての EARN が預けてあるので、ランクは合計で決める）
+  function project(earns, rk, now, mode, months = 36, withdraw = 0, freq = 'month') {
+    const s = settled(earns, rk, now);
+    const split = s.earns[0];
     const today = addMonthsJst(now, 0);
     const points = [];
     for (let i = 0; i <= months; i++) {

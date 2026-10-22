@@ -81,13 +81,14 @@ const fishBadge = (name, big) => el('span', { class: 'fish' + (big ? ' big' : ''
 // EARN VIEWER：分割しないので、EARN の枚数をそのまま1行（自分）にする。名前は「自分」（設定の「ランキングでの表示名」で変えられる）
 function splitShares(split) {
   if (!split) return [];
-  return [{ id: 'me', name: (rankSelfName || '').trim() || '自分', share: Number(split.amount), show: true }];
+  return [{ id: 'me', name: (rankSelfName || '').trim() || '自分', share: earnTotal(split), show: true }];
 }
 
 // targets：[{ id, name, share }]（報酬タブと同じ対象・順番）
 function renderRankingTab(targets) {
   const rg = data.ranking;
-  const split = data.transfers.find((x) => x.cls === 'split');
+  const earns = earnList(); // EARN が複数なら合計（E-35）
+  const split = earns.length ? earns : null;
   const ok = rg && rg.source && ranks.old && ranks.new;
   $('rankNote').hidden = !!ok;
   $('rankNote').textContent = !rg ? 'このデータには保有者ランキングが入っていません。'
